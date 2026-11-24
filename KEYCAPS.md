@@ -96,7 +96,7 @@ One key press as the core sees it. It carries no oF types.
 - `key`: either a printable character (a Unicode codepoint) or a named special key from the addon's own `SpecialKey` list: Return, Tab, Space, Backspace, Delete, Escape, the four arrows, Home, End, PageUp, PageDown, F1–F12.
 - `modifiers`: the addon's own bitmask: Ctrl, Alt (Option), Shift, Cmd (Super on Linux/Windows). These are not oF constants. OfInputSource translates them.
 - `isRepeat`: true if the operating system generated it because the key is being held down.
-- `isModifierOnly`: true if the key pressed is itself only a modifier (for example, Shift pressed alone).
+- `isModifierOnly`: true if the key pressed is itself only a modifier (for example, Shift pressed alone). Caps Lock counts as a modifier-only key (D-017).
 
 ### 6.2 MouseAction (core, data only)
 
@@ -115,7 +115,9 @@ Keys:
 - Modifier order is ⌃ ⌥ ⇧ ⌘ (the macOS convention).
 - Symbol mode (default on macOS) uses the symbols ⌃ ⌥ ⇧ ⌘. Text mode (default on Linux and Windows) uses `Ctrl+Alt+Shift+Super+`.
 - Letters in a combo are shown uppercase: ⌘S, ⌘⇧Z.
-- Shift is not shown when it only produced the character itself: typing `A` or `!` shows `A` or `!`, not ⇧A. Shift is shown when it is combined with another modifier or a special key: ⌘⇧Z, ⇧Tab.
+- Shift is not shown when it only produced the character itself: typing `A` or `!` shows `A` or `!`, not ⇧A. Shift is shown when it is combined with another modifier or a special key: ⌘⇧Z, ⇧Tab, ⇧↓.
+- Option shows the key pressed, not the character it composes: Option+a shows `⌥A`, not `å` (D-016). The same holds for Ctrl: Ctrl+a shows `⌃A`.
+- A modifier-only cap (when `showModifierOnly` is on) shows the modifier's symbol alone: ⇧, ⌃, ⌥, ⌘, and ⇪ for Caps Lock. Text mode uses Shift, Ctrl, Alt, Super, Caps.
 - Special key labels:
   - Symbol mode: Return ↩, Tab ⇥, Backspace ⌫, Delete ⌦, Escape ⎋, arrows ← → ↑ ↓.
   - Text mode: Return, Tab, Bksp, Del, Esc, Left, Right, Up, Down.
@@ -124,7 +126,7 @@ Keys:
 Mouse (modifier prefix as for keys, Shift always shown):
 - Button names: `Click` (left), `Right-click`, `Middle-click`, `Button 4` to `Button 8`.
 - While dragging, `click` becomes `drag`: `Drag`, `Right-drag`, `Middle-drag`, `Button 4 drag`.
-- Scroll: `Scroll ↑`, `Scroll ↓`, `Scroll ←` or `Scroll →`, chosen by the larger of `scrollX` and `scrollY`. Text mode uses Up, Down, Left, Right. Which sign means which direction is PENDING-5.
+- Scroll: `Scroll ↑`, `Scroll ↓`, `Scroll ←` or `Scroll →`, chosen from the gesture's summed `scrollX` and `scrollY` (M6). Text mode uses Up, Down, Left, Right. Negative `scrollY` is `Scroll ↓`, positive is `Scroll ↑` (measured, D-018). The sign for horizontal is PENDING-5.
 - Examples: `⇧Click`, `⌘Right-click`, `⌥Drag`.
 
 ### 6.4 CapHistory (core, stateful, pure)
@@ -174,7 +176,12 @@ Defaults (all in Style):
 - M3. **Up** clears `held` on that button's cap, and its age starts from 0, so it holds for `holdTime` and then fades.
 - M4. **Drag.** The first Drag event while a button is held changes that cap's label from click to drag (R5 does not apply). Later Drag events are ignored. There is no cap per mouse movement.
 - M5. **Repeated clicks.** A Down whose label equals the newest cap's label, arriving within `repeatWindow` of that cap's Up, increases its count and sets `held` again (`Click ×3`). This is counting, not double-click detection.
-- M6. **Scroll.** A Scroll event makes a scroll cap. Later Scroll events in the same direction, each within `repeatWindow` of the last, increase its count by one per event (`Scroll ↓ ×7`). The count is the number of events, not the distance. A change of direction starts a new cap.
+- M6. **Scroll gestures.** A trackpad sends about 60 Scroll events a second, keeps sending through the momentum after the fingers lift, and mixes a small cross-axis amount into straight swipes (D-018). So events are grouped into **gestures**, and a gesture is one action:
+  - Scroll events with no gap longer than `scrollGap` belong to the same gesture, momentum included.
+  - The gesture's direction comes from its running sums of `scrollX` and `scrollY`: the axis with the larger absolute sum, and that sum's sign.
+  - The first event of a gesture makes a scroll cap, or increases the newest cap's count if it is a scroll cap with the same direction whose gesture ended within `repeatWindow` (`Scroll ↓ ×3` is three swipes). The cap's label follows the running sums while the gesture lasts.
+  - A sign reversal on the gesture's direction axis ends the gesture, and the reversing event starts a new one.
+  - A gesture holds its cap like a held button (M2) until it ends, then the cap ages normally.
 - M7. **Missed release.** A Down for a button whose cap is still held first releases that cap (as M3), then applies M1 or M5. This keeps a lost Up event from leaving a cap held forever.
 - M8. **Mask mode** does not affect mouse caps.
 
@@ -189,7 +196,7 @@ Builds one text line for each press. It holds only the time of the last mark and
 - **Mouse** (only when `showMouse` is on):
   - `Click down` and `Click up` (with the button's label and modifiers).
   - `Drag start` once, at the first Drag event.
-  - `Scroll ↓` once at the start of a scroll run. Events that would only increase the count (M6) make no line.
+  - `Scroll ↓` once per gesture, at the gesture's first event, with the direction taken from that event. Every later event in the gesture makes no line.
 - **Mark.** `mark(now)` makes the line `00:00:00.000  ● MARK` and resets the zero to `now`.
 - Disabled (section 6.10): nothing is logged.
 
@@ -211,8 +218,17 @@ The only job of an InputSource is to deliver KeyStrokes and MouseActions to a li
 
 - Listens to `ofEvents().keyPressed`, and to `mousePressed`, `mouseReleased`, `mouseDragged` and `mouseScrolled`, all at `OF_EVENT_ORDER_AFTER_APP`.
 - Its listeners always report the event as not consumed.
-- Translates `ofKeyEventArgs` and `ofMouseEventArgs` into KeyStrokes and MouseActions. Which fields it reads is PENDING-1 (keys) and PENDING-5 (mouse).
-- Listens to `keyReleased` only if PENDING-1 shows it is needed (for example, to detect modifier-only taps).
+- Translates `ofMouseEventArgs` into MouseActions. Which mouse fields it reads is PENDING-5.
+- Translates `ofKeyEventArgs` into KeyStrokes by these rules, all measured on macOS with oF 0.12.1 (D-015):
+  - **Modifiers** come from the event's `modifiers` field only. `ofGetKeyPressed()` is never used: in the probe it reported Shift as held for over two minutes after Shift was let go.
+  - **Printable keys with Ctrl, Option or Cmd held** are identified by `keycode`, not `key`. Ctrl+a arrives with `key` = 0x01 (a control code), Option+a arrives with `key` = `å`, and both have `keycode` = 65 (`A`).
+  - **Printable keys with no modifier, or Shift only**, use `key`, which is already the shifted character (`A`, `!`, `{`).
+  - **Special keys** use `key` (OF_KEY_RETURN, OF_KEY_BACKSPACE, OF_KEY_TAB, OF_KEY_ESC, the arrows, F1–F12, Space). `codepoint` is not used for them: Return arrives with codepoint 0x0A, Backspace with 0.
+  - **Modifier presses arrive twice**, with the same `keycode` (340–347): once with `key` set to the modifier's flag (OF_KEY_SHIFT, OF_KEY_CONTROL, OF_KEY_ALT, OF_KEY_SUPER) and once with the left/right code (OF_KEY_LEFT_SHIFT … OF_KEY_RIGHT_SUPER). Only the left/right event becomes a KeyStroke.
+  - **Caps Lock** (`keycode` 280) arrives with a meaningless printable `key` value. It becomes a modifier-only KeyStroke.
+  - **Events with `keycode` = -1 are dropped.** The Fn (Globe) key sends a lone key-up with `keycode` -1 and a stale character in `key`.
+  - `isRepeat` is used as delivered: the first repeat comes about 0.5 s after the press, then about 12 per second.
+- Does not listen to `keyReleased` (D-015). Nothing in the core needs key releases, and a release can carry a different `key` from its press (Ctrl+a goes down as 0x01 and comes up as `a` once Ctrl is let go).
 - Keeps the mouse listeners registered even when `showMouse` is off. CapHistory and EventLog drop the events (M0), so turning the option on at run time needs no re-registration.
 - Ignores the hide/show toggle key and the mark key (section 7), so they never make a normal cap or log line.
 - `stop()` and the destructor remove every listener. A destroyed addon must leave no dangling listeners.
@@ -240,7 +256,7 @@ State isolation:
 - `draw()` saves and restores style and matrix (push/pop style, view and matrix), sets up a screen-space view for itself, and leaves depth test, blending, the camera and the viewport as it found them.
 
 Font:
-- Loaded once, from the system sans font (`OF_TTF_SANS`), with the glyph ranges needed for ⌃ ⌥ ⇧ ⌘ ↩ ⇥ ⌫ ⌦ ⎋ ● and the arrows requested at load time.
+- Loaded once, from the system sans font (`OF_TTF_SANS`), with the glyph ranges needed for ⌃ ⌥ ⇧ ⌘ ⇪ ↩ ⇥ ⌫ ⌦ ⎋ ● and the arrows requested at load time.
 - Glyphs are verified on screen (PENDING-2). If they don't draw, `Style.labelMode` falls back to text mode for that platform.
 
 ### 6.10 ofxKeyCaps (front end)
@@ -299,6 +315,7 @@ Color:
 
 Timing:
 - `mergeWindow`, `repeatWindow`, `holdTime`, `fadeTime` (defaults in section 6.4).
+- `scrollGap` 0.3 s.
 - `slideTime` 0.15 s.
 
 Limits:
@@ -334,7 +351,8 @@ Required suites:
 - **Labeler.** Modifier order. Shift rules (`A`, `!`, ⌘⇧Z, ⇧Tab). Every special key in both modes. Uppercase letters in combos. Every mouse button, click and drag labels, scroll directions, modifiers on mouse labels.
 - **Merge.** "hello" makes one cap. A gap longer than `mergeWindow` splits caps. Cmd+S breaks a text run. R4 Space cases. R8 overflow at 24 characters.
 - **Repeat.** ⌘Z three times makes `⌘Z ×3`. A gap longer than `repeatWindow` makes a new cap. Held keys follow R6.
-- **Mouse.** M0 drops everything when off. Down and Up hold and release (M1–M3). Drag relabels once (M4). Click ×3 (M5). Scroll counting and direction change (M6). Missed release (M7). Held caps survive capacity (R9).
+- **Mouse.** M0 drops everything when off. Down and Up hold and release (M1–M3). Drag relabels once (M4). Click ×3 (M5). Missed release (M7). Held caps survive capacity (R9).
+- **Scroll.** Replayed from the recorded probe gestures: each recorded swipe, momentum included, makes exactly one gesture, with the measured direction. Gaps just under and just over `scrollGap`. A sign reversal splits a gesture. Three swipes the same way make `Scroll ↓ ×3`. Cross-axis jitter (±0.1 to ±0.2) never changes the direction.
 - **Lifetime.** Hold, fade and removal at exact dt boundaries. Age resets when a cap changes. A held cap does not age. The same result whether dt comes as 1×1.0 s or 100×0.01 s.
 - **Capacity.** R9.
 - **Mask.** R2, M8, and masked log lines.
@@ -364,18 +382,14 @@ The renderer, OfInputSource and the terminal output are verified on screen in `e
 
 ## 13. Pending items (the only parts not frozen)
 
-- **PENDING-1.** Which `ofKeyEventArgs` fields OfInputSource reads to identify keys. Questions for the probe:
-  - Does Ctrl+letter arrive in `key` as a control code? If so, read `codepoint` or `keycode` instead.
-  - Does `keyReleased` still arrive for a letter pressed while ⌘ is held?
-  - Are modifier-only presses delivered as their own key events?
-  - Is `isRepeat` set correctly?
-  Resolved by step 2.
-- **PENDING-2.** Whether `OF_TTF_SANS` with the requested glyph ranges draws ⌃ ⌥ ⇧ ⌘ ↩ ⇥ ⌫ ⌦ ⎋ ● on macOS, and what happens on Linux. Resolved by step 4.
+- **PENDING-1.** Resolved by D-015 (key translation rules in section 6.8).
+- **PENDING-2.** Whether `OF_TTF_SANS` with the requested glyph ranges draws ⌃ ⌥ ⇧ ⌘ ⇪ ↩ ⇥ ⌫ ⌦ ⎋ ● on macOS, and what happens on Linux. Resolved by step 4.
 - **PENDING-3.** Default keys for `markKey` and `toggleKey`, or keeping both unset. Mac laptop F-keys need Fn, so an F-key may be a poor default. Resolved by step 5.
 - **PENDING-4.** License (to match Lee's other published addons). Resolved before step 6.
-- **PENDING-5.** Mouse fields. Questions for the probe:
-  - Is `modifiers` filled in on mouse events?
+- **PENDING-5.** Mouse fields. Vertical scroll is resolved (D-018). Still to measure with a mouse-only probe run:
+  - Is `modifiers` filled in on clicks with Shift or Cmd held?
+  - Do Ctrl+click and Option+click arrive as right and middle buttons, as oF's macOS source code says? If so, M1 labels them `Right-click` and `Middle-click`, with no ⌃ or ⌥.
   - Does `mouseReleased` arrive when the button is let go outside the window?
-  - With macOS natural scrolling on, which sign of `scrollY` means the content moved down?
+  - Which sign of `scrollX` is a leftward swipe?
   - Do extra buttons (4–8) arrive?
-  Resolved by step 2.
+  Resolved by a mouse-only run of `example-keyprobe` before step 4.

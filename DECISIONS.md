@@ -43,3 +43,28 @@ Because mouse events now flow through the same path, KeySource becomes InputSour
 
 ## D-014 — One log line per press, repeats collapsed
 The log records each press with its own label, not the merged cap text, so every key has its own time. Key auto-repeats and scroll events that only increase a count make no line, which keeps a held key or a trackpad scroll from flooding the terminal. Mouse buttons log down and up separately, so the length of a press can be read from the log.
+
+## D-015 — Key translation rules, from probe passes 1 and 2 (resolves PENDING-1)
+Measured on macOS with oF 0.12.1, through `ofEvents()` at `OF_EVENT_ORDER_AFTER_APP`. The rules are in KEYCAPS.md 6.8. What the probe showed:
+- Ctrl+a arrives with `key` 0x01 (a control code) and `keycode` 65. Option+a arrives with `key` `å` and `keycode` 65. Cmd+a arrives with `key` `a`. So printable keys pressed with Ctrl, Option or Cmd are identified by `keycode`.
+- With no modifier, or Shift only, `key` is already the typed character: `A`, `!`, `|`, `{`, `"`, `?`, `~`.
+- Each modifier press and release arrives as two events with the same `keycode`: one carrying the modifier's flag value and one carrying the left or right key code. This held for both sides of Shift, Option and Cmd, and for left Ctrl.
+- Caps Lock (`keycode` 280) arrives with an unrelated printable character in `key`.
+- The Fn (Globe) key sends a lone key-up with `keycode` -1 and a stale character in `key`.
+- A key's release can carry a different `key` from its press: Ctrl+a went down as 0x01 and came up as `a` after Ctrl was let go. The addon does not use key releases.
+- `ofGetKeyPressed(OF_KEY_SHIFT)` reported Shift as held for about two and a half minutes after it was let go, while the event's `modifiers` field was correct throughout. The addon reads only the event field.
+- `isRepeat` is reliable: first repeat about 0.5 s after the press, then about every 83 ms.
+- Return arrives with codepoint 0x0A and Backspace with codepoint 0, so special keys are identified by `key`, not `codepoint`.
+- Some shortcuts never reach the app: Cmd+Q (the menu quits first) and F11 (taken by macOS). No cap can show them.
+
+## D-016 — Option and Ctrl combos show the key pressed, not the composed character
+Option+a shows `⌥A`, not `å`, and Ctrl+a shows `⌃A`. This follows D-007 (show what was pressed). Someone typing an accented character on purpose sees `⌥E` then `E` rather than `é`, which is accepted for v1.
+
+## D-017 — Caps Lock is a modifier-only key
+Caps Lock is ignored by default, like Shift pressed alone (R1), and shows as ⇪ when `showModifierOnly` is on. VoiceOver users often set Caps Lock as the VoiceOver modifier, so it should not make a cap every time it is pressed.
+
+## D-018 — Scroll is counted in gestures, not events (replaces the old M6)
+A trackpad swipe arrived as 44 to 73 scroll events over 0.7 to 1.2 s, about 60 a second, including momentum after the fingers lifted. Values were fractional (0.1 to 2.8), and straight vertical swipes carried a cross-axis amount of ±0.1 to ±0.2. Counting per event would have shown `Scroll ↓ ×60` for one swipe. Events are now grouped into gestures by a gap of `scrollGap` (0.3 s). In pass 2, each swipe made exactly one gesture under that rule, with no sign changes inside it. The direction comes from the summed amounts: fingers moving up the trackpad (natural scrolling on) gave negative `scrollY`, labelled `Scroll ↓`, and fingers moving down gave positive, labelled `Scroll ↑`. The horizontal sign is still PENDING-5.
+
+## D-019 — A click that brings the window to the front is shown
+The click that focuses the probe window was delivered to the app (mouse down arrived just before mouse enter). The addon shows it like any other click rather than trying to filter it.
