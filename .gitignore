@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Build output in examples (bin/data is kept)
+example-*/bin/*
+!example-*/bin/data/
+example-*/obj/
+example-*/build.log
+
+# Xcode user state
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Probe output; results are recorded in DECISIONS.md
+example-keyprobe/keyprobe-results.txt
