@@ -1,7 +1,8 @@
 #include "CapHistory.h"
 #include <algorithm>
 
-namespace ofxKeyCaps {
+namespace ofx {
+namespace keycaps {
 namespace core {
 
 	CapHistory::CapHistory(const CoreSettings & settings)
@@ -277,4 +278,5 @@ namespace core {
 	}
 
 } // namespace core
-} // namespace ofxKeyCaps
+} // namespace keycaps
+} // namespace ofx

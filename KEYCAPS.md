@@ -60,11 +60,13 @@ ofxKeyCaps/
       KeyStroke.h
       MouseAction.h
       CoreSettings.h     the core's part of Style (D-023)
+      RawInput.h/.cpp    oF event numbers to KeyStrokes and MouseActions (D-027)
       CapLabeler.h/.cpp
       ScrollGesture.h/.cpp  shared gesture grouping (D-025)
       CapHistory.h/.cpp
       EventLog.h/.cpp
     of/
+      Style.h
       InputSource.h
       OfInputSource.h/.cpp
       KeycapRenderer.h/.cpp
@@ -74,8 +76,10 @@ ofxKeyCaps/
     data/                recorded probe data replayed by the tests
     reference/           Python reference model that generated the expected scroll gestures
   example-keyprobe/      logs raw oF key and mouse events (build step 2)
-  example-basic/         the addon in use
+  example-basic/         the addon in use, with a grid that follows scrolling
 ```
+
+Namespaces: the front end is the global class `ofxKeyCaps`. Everything else is in `ofx::keycaps` (oF side) and `ofx::keycaps::core` (D-029).
 
 ## 5. Data flow
 
@@ -233,11 +237,13 @@ The only job of an InputSource is to deliver KeyStrokes and MouseActions to a li
   - **Releases outside the window** are delivered, so a held cap is always released.
   - **Drag distance** is measured from where the button went down, in logical points (window coordinates divided by the pixel density, when high-resolution mode is on).
   - **Scroll** amounts pass through unchanged.
+- The translation itself is `core/RawInput` (D-027): pure functions over the raw numbers, tested headless against every key press the probe recorded. OfInputSource only copies the fields across and measures drag distance. `OfInputSource.cpp` static_asserts that every oF and GLFW number the core copies is still current.
 - Translates `ofKeyEventArgs` into KeyStrokes by these rules, all measured on macOS with oF 0.12.1 (D-015):
   - **Modifiers** come from the event's `modifiers` field only. `ofGetKeyPressed()` is never used: in the probe it reported Shift as held for over two minutes after Shift was let go.
   - **Printable keys with Ctrl, Option or Cmd held** are identified by `keycode`, not `key`. Ctrl+a arrives with `key` = 0x01 (a control code), Option+a arrives with `key` = `å`, and both have `keycode` = 65 (`A`).
   - **Printable keys with no modifier, or Shift only**, use `key`, which is already the shifted character (`A`, `!`, `{`).
-  - **Special keys** use `key` (OF_KEY_RETURN, OF_KEY_BACKSPACE, OF_KEY_TAB, OF_KEY_ESC, the arrows, F1–F12, Space). `codepoint` is not used for them: Return arrives with codepoint 0x0A, Backspace with 0.
+  - **Special keys** are identified by `keycode` (GLFW's Enter, Tab, Backspace, Delete, Escape, the arrows, Home, End, Page Up, Page Down, F1–F12, Space, keypad Enter), not by `key` (D-027). With Ctrl held, Ctrl+H arrives with `key` 8 (Backspace's value), Ctrl+I with 9 (Tab), Ctrl+M with 13 (Return) and Ctrl+[ with 27 (Esc). `codepoint` is not used either: Return arrives with codepoint 0x0A, Backspace with 0. Insert is dropped.
+  - **With Ctrl or Option held**, the `keycode` character is the key's position on a US layout. On other layouts a Ctrl or Option combo can show the US letter for that key (accepted for v1, D-027). With Cmd only, `key` is used, which follows the layout.
   - **Modifier presses arrive twice**, with the same `keycode` (340–347): once with `key` set to the modifier's flag (OF_KEY_SHIFT, OF_KEY_CONTROL, OF_KEY_ALT, OF_KEY_SUPER) and once with the left/right code (OF_KEY_LEFT_SHIFT … OF_KEY_RIGHT_SUPER). Only the left/right event becomes a KeyStroke.
   - **Caps Lock** (`keycode` 280) arrives with a meaningless printable `key` value. It becomes a modifier-only KeyStroke.
   - **Events with `keycode` = -1 are dropped.** The Fn (Globe) key sends a lone key-up with `keycode` -1 and a stale character in `key`.
@@ -269,9 +275,12 @@ Scale:
 State isolation:
 - `draw()` saves and restores style and matrix (push/pop style, view and matrix), sets up a screen-space view for itself, and leaves depth test, blending, the camera and the viewport as it found them.
 
-Font:
-- Loaded once, from the system sans font (`OF_TTF_SANS`), with the glyph ranges needed for ⌃ ⌥ ⇧ ⌘ ⇪ ↩ ⇥ ⌫ ⌦ ⎋ ● and the arrows requested at load time.
-- Glyphs are verified on screen (PENDING-2). If they don't draw, `Style.labelMode` falls back to text mode for that platform.
+Font (D-028):
+- A FreeType font has no fallback for missing glyphs, and the system sans font on macOS (Helvetica Neue) may lack ⌘ and ⌥. So fonts are tried in order, symbol-capable first: on macOS `Lucida Grande` then `OF_TTF_SANS`; on Linux `DejaVu Sans` then `OF_TTF_SANS`; on Windows `Segoe UI Symbol` then `OF_TTF_SANS`. All are system fonts, so P1 holds.
+- A font counts as having a symbol when the symbol's outline differs from the font's missing-glyph outline (the outline drawn for the unassigned codepoint U+0378). `ofTrueTypeFont::isValidGlyph` cannot be used for this: it only checks the requested ranges, not the font.
+- The first font with every symbol (⌃ ⌥ ⇧ ⌘ ⇪ ↩ ⇥ ⌫ ⌦ ⎋ ← ↑ → ↓ ● × •) is used. If none has them all, the first font that loads is used, Symbols mode falls back to Text mode, and a warning names the missing symbols.
+- The font is loaded at `fontSize` × pixel scale and reloaded if the window moves to a display with a different scale.
+- Confirmed on screen in step 4 (PENDING-2).
 
 ### 6.10 ofxKeyCaps (front end)
 
@@ -366,6 +375,7 @@ What a user sees in the terminal while recording a short demo, with `showMouse` 
 `tests/` builds `src/core/` alone, with no openFrameworks, using `make test`. Output follows the ofxManifold pattern: one GREEN or RED line per suite, then a suites summary.
 
 Required suites:
+- **Keys.** Every key press recorded by the probe (185 events from three passes) goes through RawInput and CapLabeler and must match the label from `tests/reference/key_reference.py`, a separately written Python model. Also: the Ctrl+H / Ctrl+I / Ctrl+M / Ctrl+[ collisions, Option composing, the duplicate modifier events, Caps Lock, Fn (keycode -1), Insert, keypad Enter, modifier bits, and mouse button numbers.
 - **Labeler.** Modifier order. Shift rules (`A`, `!`, ⌘⇧Z, ⇧Tab). Every special key in both modes. Uppercase letters in combos. Every mouse button, click and drag labels, scroll directions, modifiers on mouse labels.
 - **Merge.** "hello" makes one cap. A gap longer than `mergeWindow` splits caps. Cmd+S breaks a text run. R4 Space cases. R8 overflow at 24 characters.
 - **Repeat.** ⌘Z three times makes `⌘Z ×3`. A gap longer than `repeatWindow` makes a new cap. Held keys follow R6.
@@ -394,8 +404,8 @@ The renderer, OfInputSource and the terminal output are verified on screen in `e
    - keys: `key`, `keycode`, `scancode`, `codepoint`, `modifiers`, `isRepeat`, for every key in a fixed probe list;
    - mouse: `button`, `type`, `modifiers`, `scrollX`, `scrollY`, for each button, with modifiers, while dragging, and while scrolling both ways.
    The results go into DECISIONS.md and resolve PENDING-1 and PENDING-5. Done: three passes, recorded as D-015 to D-022.
-3. Core (KeyStroke, MouseAction, CoreSettings, CapLabeler, ScrollGesture, CapHistory, EventLog) with tests, all GREEN and each one shown RED.
-4. OfInputSource and KeycapRenderer, plus `example-basic`, verified on screen and in the terminal. This resolves PENDING-2 and the rest of PENDING-5.
+3. Core (KeyStroke, MouseAction, CoreSettings, CapLabeler, ScrollGesture, CapHistory, EventLog) with tests, all GREEN and each one shown RED. Done.
+4. RawInput (in the core, with its Keys suite), OfInputSource, KeycapRenderer, the front end, and `example-basic`, verified on screen and in the terminal. This resolves PENDING-2 and the rest of PENDING-5.
 5. Style options, mark key, toggle key and mask. This resolves PENDING-3.
 6. README and publish.
 7. (Later, optional) MacGlobalInputSource. It gets its own spec section before any code.
@@ -407,5 +417,5 @@ The renderer, OfInputSource and the terminal output are verified on screen in `e
 - **PENDING-3.** Default keys for `markKey` and `toggleKey`, or keeping both unset. Mac laptop F-keys need Fn, so an F-key may be a poor default. Resolved by step 5.
 - **PENDING-4.** License (to match Lee's other published addons). Resolved before step 6.
 - **PENDING-5.** Mouse fields, mostly resolved by D-020. Two things could not be measured with a trackpad and are checked in step 4 instead:
-  - The horizontal scroll labels (D-022): swipe left and right in `example-basic` and confirm that the arrow matches the way the content moved.
+  - The horizontal scroll labels (D-022): in `example-basic` the grid moves the way the content of any Mac window would. Swipe two fingers left: the grid should follow your fingers left, the terminal should print `grid moved LEFT`, and the cap should read `Scroll →`. If the grid moves the other way from your fingers horizontally but not vertically, D-022 is reversed.
   - Option+click alone, and buttons 3–8: oF's source says Option+click arrives as middle. Extra buttons need a mouse that has them. Until a mouse confirms them, the labels follow the source code.

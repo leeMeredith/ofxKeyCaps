@@ -16,3 +16,6 @@ example-keyprobe/keyprobe-results*.txt
 
 # Core test build output
 tests/build/
+
+# example-basic terminal captures
+example-basic/example-basic-log*.txt

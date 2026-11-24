@@ -17,7 +17,7 @@ BIN := $(BUILD)/keycaps_tests
 test: headers $(BIN)
 	@"$(abspath $(BIN))"
 
-$(BIN): $(SRCS) $(wildcard $(CORE)/*.h) data/probe_pass1_scroll.inc
+$(BIN): $(SRCS) $(wildcard $(CORE)/*.h) data/probe_pass1_scroll.inc data/probe_keys.inc
 	@mkdir -p $(BUILD)
 	@$(CXX) $(CXXFLAGS) -I$(CORE) -I. $(SRCS) -o $@
 

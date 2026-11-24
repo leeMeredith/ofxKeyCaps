@@ -99,3 +99,18 @@ The screen (CapHistory) and the log (EventLog) both need to know where a scroll 
 - `tests/mutate.sh` (`make mutate`) proves each suite can fail. On 2026-11-24 all 11 mutants were caught: one or more per suite, plus an `ofMain.h` include caught by `make headers`.
 - The tests build with `-Wall -Wextra -Wpedantic -Werror`. They were checked with g++ 13 and with clang (also with `-Wshadow -Wconversion`).
 - No `addon_config.mk` is needed to keep tests out of host projects: Project Generator only adds an addon's `src/` and `libs/` folders, and `tests/` is outside both.
+
+## D-027 — Key translation moves into the core as RawInput; special keys by keycode
+- The translation rules of KEYCAPS.md 6.8 are pure functions in `src/core/RawInput`. They take the raw numbers from oF events, with oF's and GLFW's values copied in as constants. The Keys suite replays all 185 key presses recorded by the probe, and they match a separately written Python model. `OfInputSource.cpp` static_asserts every copied value against openFrameworks and GLFW, so a change in either stops the build instead of silently mislabelling keys.
+- Correction to D-015: special keys are identified by `keycode`, not `key`. Reading oF's source showed that with Ctrl held, Ctrl+H, Ctrl+I, Ctrl+M and Ctrl+[ arrive with the same `key` values as Backspace, Tab, Return and Esc.
+- With Ctrl or Option held, the character comes from `keycode`, which is the key's position on a US layout. On other layouts such a combo can show the US letter. With Cmd only, `key` is used, which follows the layout. Accepted for v1.
+- Insert is dropped (Mac keyboards have none, and there is no Insert cap). Keypad Enter shows as ↩.
+
+## D-028 — The font is chosen by checking which symbols it actually has
+oF's source showed that the "sans-serif" font on macOS is Helvetica Neue, that FreeType has no fallback to other fonts for missing glyphs, and that `ofTrueTypeFont::isValidGlyph` only checks the requested ranges, not the font. The renderer therefore tries system fonts in order, symbol-capable first (macOS: Lucida Grande, the classic menu font; Linux: DejaVu Sans; Windows: Segoe UI Symbol), then `OF_TTF_SANS`. For each one it compares every symbol's outline with the font's missing-glyph outline. If no font has every symbol, Symbols mode falls back to Text mode with a warning naming what is missing. Only system fonts are used, so nothing extra has to be installed (P1). This replaces the single `OF_TTF_SANS` font in the original 6.9.
+
+## D-029 — Namespaces
+A global class named `ofxKeyCaps` cannot share its name with a namespace `ofxKeyCaps`, so the internals live in `ofx::keycaps` and `ofx::keycaps::core`. The user only ever writes `ofxKeyCaps` and `ofxKeyCaps::Style`.
+
+## D-030 — example-basic checks the horizontal scroll labels physically
+A grid in `example-basic` moves the way any Mac window's content would. When a scroll gesture ends, the terminal prints which way the grid moved, so the check works without looking at the screen. Vertical scrolling is already measured: fingers up, grid up, `Scroll ↓`. Horizontally, if the grid follows the fingers left and the cap reads `Scroll →`, D-022 is right. If the grid moves against the fingers horizontally while following them vertically, D-022 is reversed in CapLabeler and recorded here.

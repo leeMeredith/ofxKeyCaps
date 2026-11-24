@@ -49,6 +49,14 @@ mutant "D-021 right-click keeps Ctrl" Labeler CapLabeler.cpp \
 	'shown &= static_cast<uint8_t>(~ModCtrl); // D-021' \
 	'// mutated'
 
+mutant "D-015 modifier flag events not dropped" Keys RawInput.cpp \
+	'if (in.key < raw::KeyLeftShift || in.key > raw::KeyRightSuper) return false;' \
+	'// mutated'
+
+mutant "D-015 Ctrl combos read key instead of keycode" Keys RawInput.cpp \
+	'const bool ctrlOrAlt = (out.modifiers & (ModCtrl | ModAlt)) != 0;' \
+	'const bool ctrlOrAlt = false;'
+
 mutant "R8 overflow at 25 instead of 24" Merge CapHistory.cpp \
 	'CapLabeler::codepointCount(n->label) < settings_.maxTextChars' \
 	'CapLabeler::codepointCount(n->label) <= settings_.maxTextChars'

@@ -5,7 +5,8 @@
 
 #include <cstdint>
 
-namespace ofxKeyCaps {
+namespace ofx {
+namespace keycaps {
 namespace core {
 
 	// The addon's own modifier bitmask (D-005). Not oF constants.
@@ -91,4 +92,5 @@ namespace core {
 	};
 
 } // namespace core
-} // namespace ofxKeyCaps
+} // namespace keycaps
+} // namespace ofx

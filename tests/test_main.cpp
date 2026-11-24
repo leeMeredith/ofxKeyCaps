@@ -5,6 +5,7 @@
 #include "CapHistory.h"
 #include "CapLabeler.h"
 #include "EventLog.h"
+#include "RawInput.h"
 #include "ScrollGesture.h"
 
 #include <cmath>
@@ -13,9 +14,10 @@
 #include <string>
 #include <vector>
 
+#include "data/probe_keys.inc"
 #include "data/probe_pass1_scroll.inc"
 
-using namespace ofxKeyCaps::core;
+using namespace ofx::keycaps::core;
 
 //--------------------------------------------------------------
 // A small test harness
@@ -654,6 +656,77 @@ static void suiteLog(Ctx & ctx) {
 }
 
 //--------------------------------------------------------------
+// Keys (RawInput, KEYCAPS.md 6.8), replayed from the recorded probe data
+//--------------------------------------------------------------
+static std::string translated(int key, int keycode, int mods) {
+	RawKey r;
+	r.key = key;
+	r.keycode = keycode;
+	r.modifiers = mods;
+	KeyStroke k;
+	if (!translateKey(r, k)) return "DROP";
+	return CapLabeler::keyLabel(k, LabelMode::Symbols);
+}
+
+static void suiteKeys(Ctx & ctx) {
+	// Every recorded key press gets the label the reference model expects.
+	int mismatches = 0;
+	for (const RecordedKey & e : kProbeKeys) {
+		RawKey r;
+		r.key = e.key;
+		r.keycode = e.keycode;
+		r.modifiers = e.modifiers;
+		r.isRepeat = e.isRepeat;
+		KeyStroke k;
+		const std::string got = translateKey(r, k) ? CapLabeler::keyLabel(k, LabelMode::Symbols) : "DROP";
+		if (got != e.label) {
+			++mismatches;
+			CHECK_STR(got, e.label);
+		}
+		if (got != "DROP") CHECK(k.isRepeat == e.isRepeat);
+	}
+	CHECK_INT(mismatches, 0);
+
+	// Ctrl turns letters into control codes that collide with specials.
+	CHECK_STR(translated(8, 'H', raw::ModControl), CTRL + "H"); // not Backspace
+	CHECK_STR(translated(9, 'I', raw::ModControl), CTRL + "I"); // not Tab
+	CHECK_STR(translated(13, 'M', raw::ModControl), CTRL + "M"); // not Return
+	CHECK_STR(translated(27, '[', raw::ModControl), CTRL + "["); // not Esc
+	// Option composes; the key pressed is shown.
+	CHECK_STR(translated(0xE5, 'A', raw::ModAlt), ALT + "A");
+	CHECK_STR(translated(0xE9, 'E', raw::ModAlt | raw::ModShift), ALT + SHIFT + "E");
+	// Modifier presses: only the left/right event counts.
+	CHECK_STR(translated(raw::ModShift, raw::CodeLeftShift, raw::ModShift), "DROP");
+	CHECK_STR(translated(0xe61, raw::CodeRightShift, raw::ModShift), SHIFT);
+	CHECK_STR(translated(0xe67, raw::CodeRightSuper, raw::ModSuper), CMD);
+	// Caps Lock, Fn, Insert, keypad Enter.
+	CHECK_STR(translated('<', raw::CodeCapsLock, 0), CAPS);
+	CHECK_STR(translated(0xE5, -1, 0), "DROP");
+	CHECK_STR(translated(0xe014, raw::CodeInsert, 0), "DROP");
+	CHECK_STR(translated(13, raw::CodeKeypadEnter, 0), RET);
+	// Shift on specials, Cmd with a layout character.
+	CHECK_STR(translated(9, raw::CodeTab, raw::ModShift), SHIFT + TAB);
+	CHECK_STR(translated('z', 'Z', raw::ModSuper | raw::ModShift), SHIFT + CMD + "Z");
+	CHECK_STR(translated(127, raw::CodeDelete, 0), DEL);
+	CHECK_STR(translated(0xe00B, raw::CodeF12, 0), "F12");
+
+	// Modifier bits.
+	CHECK_INT(translateModifiers(0x17), ModCtrl | ModAlt | ModShift | ModCmd);
+	CHECK_INT(translateModifiers(0), ModNone);
+
+	// Mouse buttons: oF 1 is middle, 2 is right, 3..7 are buttons 4..8.
+	MouseButton b;
+	int n = 0;
+	CHECK(translateButton(0, b, n) && b == MouseButton::Left);
+	CHECK(translateButton(1, b, n) && b == MouseButton::Middle);
+	CHECK(translateButton(2, b, n) && b == MouseButton::Right);
+	CHECK(translateButton(3, b, n) && b == MouseButton::Other && n == 4);
+	CHECK(translateButton(7, b, n) && b == MouseButton::Other && n == 8);
+	CHECK(!translateButton(8, b, n));
+	CHECK(!translateButton(-1, b, n));
+}
+
+//--------------------------------------------------------------
 int main() {
 	struct Suite {
 		const char * name;
@@ -661,6 +734,7 @@ int main() {
 	};
 	const Suite suites[] = {
 		{ "Labeler", suiteLabeler },
+		{ "Keys", suiteKeys },
 		{ "Merge", suiteMerge },
 		{ "Repeat", suiteRepeat },
 		{ "Mouse", suiteMouse },

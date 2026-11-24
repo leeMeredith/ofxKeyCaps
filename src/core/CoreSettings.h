@@ -4,7 +4,8 @@
 // Plain values with the spec's defaults. The oF-side Style holds one of
 // these, so the core never sees an oF type (D-023).
 
-namespace ofxKeyCaps {
+namespace ofx {
+namespace keycaps {
 namespace core {
 
 	enum class LabelMode {
@@ -35,4 +36,5 @@ namespace core {
 	};
 
 } // namespace core
-} // namespace ofxKeyCaps
+} // namespace keycaps
+} // namespace ofx

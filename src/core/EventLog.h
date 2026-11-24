@@ -11,7 +11,8 @@
 #include "ScrollGesture.h"
 #include <string>
 
-namespace ofxKeyCaps {
+namespace ofx {
+namespace keycaps {
 namespace core {
 
 	class EventLog {
@@ -46,4 +47,5 @@ namespace core {
 	};
 
 } // namespace core
-} // namespace ofxKeyCaps
+} // namespace keycaps
+} // namespace ofx

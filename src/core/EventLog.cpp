@@ -2,7 +2,8 @@
 #include <cmath>
 #include <cstdio>
 
-namespace ofxKeyCaps {
+namespace ofx {
+namespace keycaps {
 namespace core {
 
 	namespace {
@@ -90,4 +91,5 @@ namespace core {
 	}
 
 } // namespace core
-} // namespace ofxKeyCaps
+} // namespace keycaps
+} // namespace ofx

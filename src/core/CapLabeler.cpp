@@ -1,6 +1,7 @@
 #include "CapLabeler.h"
 
-namespace ofxKeyCaps {
+namespace ofx {
+namespace keycaps {
 namespace core {
 	namespace CapLabeler {
 
@@ -170,4 +171,5 @@ namespace core {
 
 	} // namespace CapLabeler
 } // namespace core
-} // namespace ofxKeyCaps
+} // namespace keycaps
+} // namespace ofx

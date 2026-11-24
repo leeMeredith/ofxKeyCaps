@@ -13,7 +13,8 @@
 #include <string>
 #include <vector>
 
-namespace ofxKeyCaps {
+namespace ofx {
+namespace keycaps {
 namespace core {
 
 	enum class CapKind {
@@ -91,4 +92,5 @@ namespace core {
 	};
 
 } // namespace core
-} // namespace ofxKeyCaps
+} // namespace keycaps
+} // namespace ofx

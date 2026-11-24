@@ -6,7 +6,8 @@
 #include "KeyStroke.h"
 #include <cstdint>
 
-namespace ofxKeyCaps {
+namespace ofx {
+namespace keycaps {
 namespace core {
 
 	enum class MouseButton : uint8_t {
@@ -77,4 +78,5 @@ namespace core {
 	};
 
 } // namespace core
-} // namespace ofxKeyCaps
+} // namespace keycaps
+} // namespace ofx

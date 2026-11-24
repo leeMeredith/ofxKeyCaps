@@ -7,7 +7,8 @@
 #include "CoreSettings.h"
 #include "MouseAction.h"
 
-namespace ofxKeyCaps {
+namespace ofx {
+namespace keycaps {
 namespace core {
 
 	// What one scroll event did to the gesture state.
@@ -51,4 +52,5 @@ namespace core {
 	};
 
 } // namespace core
-} // namespace ofxKeyCaps
+} // namespace keycaps
+} // namespace ofx
