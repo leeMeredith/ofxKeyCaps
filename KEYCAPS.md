@@ -51,9 +51,10 @@ Out of scope, not planned:
 ```
 ofxKeyCaps/
   addon_config.mk
+  README.md
+  LICENSE                MIT
   KEYCAPS.md             this spec
   DECISIONS.md           decisions and reversals log
-  README.md
   src/
     ofxKeyCaps.h/.cpp    front end (section 6.10)
     core/                NO oF includes (enforced, section 11)
@@ -399,7 +400,7 @@ The renderer, OfInputSource and the terminal output are verified on screen in `e
 ## 11. Structural checks
 
 - `make headers` (or an equivalent script in `tests/`) fails if any file in `src/core/` includes `ofMain.h` or any `of*.h` header.
-- `addon_config.mk` makes no changes to Project Generator defaults, beyond what is needed to exclude `tests/` from host projects.
+- `addon_config.mk` holds only the addon's metadata (name, description, author, tags, URL). It changes no Project Generator defaults. No exclusion is needed for `tests/`, because only `src/` is compiled into projects (D-026).
 
 ## 12. Build order (each step green before the next)
 
@@ -409,15 +410,15 @@ The renderer, OfInputSource and the terminal output are verified on screen in `e
    - mouse: `button`, `type`, `modifiers`, `scrollX`, `scrollY`, for each button, with modifiers, while dragging, and while scrolling both ways.
    The results go into DECISIONS.md and resolve PENDING-1 and PENDING-5. Done: three passes, recorded as D-015 to D-022.
 3. Core (KeyStroke, MouseAction, CoreSettings, CapLabeler, ScrollGesture, CapHistory, EventLog) with tests, all GREEN and each one shown RED. Done.
-4. RawInput (in the core, with its Keys suite), OfInputSource, KeycapRenderer, the front end, and `example-basic`, verified on screen and in the terminal. This resolves PENDING-2 and the rest of PENDING-5.
-5. Style options, mark key, toggle key and mask. This resolves PENDING-3 (D-034).
-6. README and publish.
+4. RawInput (in the core, with its Keys suite), OfInputSource, KeycapRenderer, the front end, and `example-basic`, verified on screen and in the terminal. This resolves PENDING-2 and the rest of PENDING-5. Done.
+5. Style options, mark key, toggle key and mask. This resolves PENDING-3 (D-034). Done.
+6. README, LICENSE (MIT) and addon metadata, then publish. Check ofxaddons.com for the name before announcing (D-008).
 7. (Later, optional) MacGlobalInputSource. It gets its own spec section before any code.
 
 ## 13. Pending items (the only parts not frozen)
 
 - **PENDING-1.** Resolved by D-015 (key translation rules in section 6.8).
-- **PENDING-2.** Whether the symbols draw on screen on macOS. The first run fell back to text because the D-028 check was wrong; D-032 replaces the check. Resolved when `example-basic` reports a font with every symbol and the caps show ⌘ ⌥ ⇧ correctly. Linux and Windows stay on text labels for v1.
+- **PENDING-2.** Resolved by D-037 and D-038: Lucida Grande has every symbol, and the caps were confirmed on screen. Linux and Windows stay on text labels for v1.
 - **PENDING-3.** Resolved by D-034: ⌃⇧M marks and ⌃⇧K shows or hides, both changeable or able to be turned off.
-- **PENDING-4.** License (to match Lee's other published addons). Resolved before step 6.
+- **PENDING-4.** Resolved by D-039: MIT.
 - **PENDING-5.** Mouse fields, resolved by D-020 and D-033, except one item that needs hardware: Option+click alone, and buttons 3–8. oF's source says Option+click arrives as middle; extra buttons need a mouse that has them. Until a mouse confirms them, the labels follow the source code.

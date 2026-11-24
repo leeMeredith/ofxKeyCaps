@@ -135,3 +135,12 @@ On a US layout, Option+I is a dead key: it shows as `⌥I` (D-016), and the next
 
 ## D-037 — Symbols confirmed in the log (PENDING-2, on-screen look still to confirm)
 In the second `example-basic` run (2026-11-24), the CoreText check found every symbol in Lucida Grande. The log printed `● MARK`, `⌘L`, `⌃K`, `⌥K`, `⎋` and the four scroll arrows. That the caps draw these glyphs correctly, at a good size and position, is for Lee to confirm on screen.
+
+## D-038 — The caps confirmed on screen (resolves PENDING-2)
+After the third `example-basic` run, Lee confirmed that the caps look right: real ⌘ ⌥ ⌃ symbols, a good size at the bottom center, and smooth fading. The same run confirmed the hotkeys: ⌃⇧M reset the log to `00:00:00.000  ● MARK`, ⌃⇧K wrote `(hidden)` and `(shown)` twice each, nothing was logged while hidden, and neither hotkey appeared as a cap or a log line.
+
+## D-039 — MIT license (resolves PENDING-4)
+MIT, the same license as openFrameworks and most addons. Copyright 2026 Lee Meredith.
+
+## D-040 — Platforms at v1
+v1 is developed and tested on macOS on Apple Silicon. Linux and Windows are expected to build, because the platform-specific code is guarded and the font falls back to system fonts with text labels, but they have not been built yet. The README says so plainly. A GitHub Actions build on Linux, like ofxManifold's, would turn "expected" into "checked".
