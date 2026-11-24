@@ -59,14 +59,20 @@ ofxKeyCaps/
     core/                NO oF includes (enforced, section 11)
       KeyStroke.h
       MouseAction.h
+      CoreSettings.h     the core's part of Style (D-023)
       CapLabeler.h/.cpp
+      ScrollGesture.h/.cpp  shared gesture grouping (D-025)
       CapHistory.h/.cpp
       EventLog.h/.cpp
     of/
       InputSource.h
       OfInputSource.h/.cpp
       KeycapRenderer.h/.cpp
-  tests/                 headless tests of src/core, Makefile with `make test`
+  tests/                 headless tests of src/core: `make test`, `make headers`, `make mutate`
+    test_main.cpp
+    mutate.sh            breaks one rule at a time in a copy of src/core (D-026)
+    data/                recorded probe data replayed by the tests
+    reference/           Python reference model that generated the expected scroll gestures
   example-keyprobe/      logs raw oF key and mouse events (build step 2)
   example-basic/         the addon in use
 ```
@@ -78,7 +84,7 @@ oF key + mouse events → OfInputSource → KeyStroke / MouseAction
                                               │
                     ┌─────────────────────────┴───────────────┐
                     ↓                                         ↓
-     CapHistory ← update(dt)                    EventLog ← now (seconds)
+     CapHistory ← update(now)                   EventLog ← now (seconds)
                     ↓                                         ↓
           list of visible caps                     one text line per press
                     ↓                                         ↓
@@ -135,7 +141,7 @@ Mouse (modifier prefix as for keys, Shift always shown):
 
 Holds the caps currently visible and applies the rules below.
 
-- Input comes from `push(KeyStroke, now)` and `push(MouseAction, now)`. Time advances through `update(dt)`.
+- Input comes from `push(KeyStroke, now)` and `push(MouseAction, now)`. Time advances through `update(now)`, on the same clock as the pushes (D-024).
 - The output is an ordered list of caps, oldest first. Each cap has its label text, its repeat count, its age, its opacity from 0 to 1, and two flags: `held` (a mouse button is still down) and `isMark`.
 
 Cap kinds:
@@ -280,8 +286,8 @@ Public surface:
 - `clear()`.
 
 Behavior:
-- The addon subscribes to `ofEvents().update` itself and passes `ofGetLastFrameTime()` to `CapHistory::update(dt)`. The host never calls update.
-- It passes `ofGetElapsedTimef()` as `now` to CapHistory and EventLog.
+- The addon subscribes to `ofEvents().update` itself and passes `ofGetElapsedTimef()` to `CapHistory::update(now)`. The host never calls update.
+- It passes the same `ofGetElapsedTimef()` as `now` to every push and to EventLog (D-024).
 - Each line from EventLog is printed with `ofLogNotice("ofxKeyCaps")`, when `Style.log` is on. The line appears in Xcode's console or in Terminal, depending on how the app was launched. oF's own `ofSetLogLevel("ofxKeyCaps", OF_LOG_SILENT)` also silences it.
 - When disabled, nothing is recorded, logged or drawn. Enabling again starts with no caps. The mark time is kept.
 
@@ -370,7 +376,9 @@ Required suites:
 - **Mask.** R2, M8, and masked log lines.
 - **Log.** Time format at 0, under a second, over an hour. The zero before the first mark. A mark resets the zero. One line per press. No lines for `isRepeat` or for scroll count increases. Mouse lines only when `showMouse` is on.
 
-Mutation check: each suite must be shown going RED at least once, by deliberately breaking the rule it covers, before it counts.
+Mutation check: each suite must be shown going RED at least once, by deliberately breaking the rule it covers, before it counts. `make mutate` does this with `tests/mutate.sh`: it copies `src/core`, breaks one rule per mutant, rebuilds the tests against the copy and requires the covering suite to go RED. It also breaks principle P3 (an `ofMain.h` include) and requires `make headers` to go RED. `src/core` itself is never touched.
+
+The Scroll suite replays the 645 scroll events recorded in probe pass 1 and compares the result with the gestures expected by `tests/reference/scroll_reference.py`, a separate Python model (D-026). Python is only needed to regenerate that expected data, never to build or run the tests.
 
 The renderer, OfInputSource and the terminal output are verified on screen in `example-basic`.
 
@@ -386,7 +394,7 @@ The renderer, OfInputSource and the terminal output are verified on screen in `e
    - keys: `key`, `keycode`, `scancode`, `codepoint`, `modifiers`, `isRepeat`, for every key in a fixed probe list;
    - mouse: `button`, `type`, `modifiers`, `scrollX`, `scrollY`, for each button, with modifiers, while dragging, and while scrolling both ways.
    The results go into DECISIONS.md and resolve PENDING-1 and PENDING-5. Done: three passes, recorded as D-015 to D-022.
-3. Core (KeyStroke, MouseAction, CapLabeler, CapHistory, EventLog) with tests, all GREEN and each one shown RED.
+3. Core (KeyStroke, MouseAction, CoreSettings, CapLabeler, ScrollGesture, CapHistory, EventLog) with tests, all GREEN and each one shown RED.
 4. OfInputSource and KeycapRenderer, plus `example-basic`, verified on screen and in the terminal. This resolves PENDING-2 and the rest of PENDING-5.
 5. Style options, mark key, toggle key and mask. This resolves PENDING-3.
 6. README and publish.

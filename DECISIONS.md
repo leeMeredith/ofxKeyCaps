@@ -84,3 +84,18 @@ oF turns Ctrl+click into a right-click and Option+click into a middle-click, and
 
 ## D-022 — Horizontal scroll uses the same convention as vertical
 Two horizontal gestures were recorded (sums of -2.8 and +39.6), but the run did not record which way the fingers moved for each one. The labels follow the vertical convention: a negative amount means moving toward the end of the content, so negative `scrollX` is `Scroll →` and positive is `Scroll ←`. This is confirmed on screen in step 4. If it turns out wrong, the fix is a sign change in CapLabeler, recorded as a reversal here.
+
+## D-023 — CoreSettings holds the core's part of Style
+The core needs timing, limits, thresholds and label mode, but Style also holds colors, sizes and keys, which belong to the oF side. `src/core/CoreSettings.h` is a plain struct with the spec's defaults, and the oF-side Style will hold one. This keeps P3: the core never sees an oF type.
+
+## D-024 — CapHistory::update(now) replaces update(dt) (partly reverses D-006)
+D-006 had time enter the core as `push(stroke, now)` and `update(dt)`. That is two clocks: pushes carry absolute times, while updates add up frame times, and the two drift apart. CapHistory now takes `update(now)` on the same clock as the pushes, and works out ages as `now - changedAt`. The core still never reads a clock (P4). The front end passes `ofGetElapsedTimef()` to both. The Lifetime suite still checks that one 1.7 s step and 170 steps of 0.01 s give the same opacity.
+
+## D-025 — ScrollGesture is a shared core module
+The screen (CapHistory) and the log (EventLog) both need to know where a scroll gesture starts, ends and becomes visible. Writing that logic twice would let them disagree, so `src/core/ScrollGesture.h/.cpp` holds it, and CapHistory and EventLog each own one instance. Sums are kept in double precision.
+
+## D-026 — Test tooling: recorded data, reference model, mutation script
+- `tests/data/probe_pass1_scroll.txt` holds the 645 scroll events from probe pass 1. `tests/reference/scroll_reference.py` groups them into gestures with a separately written model (gaps first, then reversals, with a product test instead of a sign comparison) and generates `tests/data/probe_pass1_scroll.inc`. Both models find 15 visible gestures, one per recorded swipe.
+- `tests/mutate.sh` (`make mutate`) proves each suite can fail. On 2026-11-24 all 11 mutants were caught: one or more per suite, plus an `ofMain.h` include caught by `make headers`.
+- The tests build with `-Wall -Wextra -Wpedantic -Werror`. They were checked with g++ 13 and with clang (also with `-Wshadow -Wconversion`).
+- No `addon_config.mk` is needed to keep tests out of host projects: Project Generator only adds an addon's `src/` and `libs/` folders, and `tests/` is outside both.

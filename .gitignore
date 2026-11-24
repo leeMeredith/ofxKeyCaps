@@ -13,3 +13,6 @@ example-*/build.log
 
 # Probe output; results are recorded in DECISIONS.md
 example-keyprobe/keyprobe-results*.txt
+
+# Core test build output
+tests/build/
