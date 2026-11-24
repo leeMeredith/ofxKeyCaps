@@ -40,11 +40,12 @@ namespace core {
 
 			std::string modifierKeyName(ModifierKey m, LabelMode mode) {
 				const bool sym = symbols(mode);
+				const bool mac = mode == LabelMode::MacText;
 				switch (m) {
 				case ModifierKey::Shift: return sym ? "\xE2\x87\xA7" : "Shift"; // ⇧
 				case ModifierKey::Ctrl: return sym ? "\xE2\x8C\x83" : "Ctrl"; // ⌃
-				case ModifierKey::Alt: return sym ? "\xE2\x8C\xA5" : "Alt"; // ⌥
-				case ModifierKey::Cmd: return sym ? "\xE2\x8C\x98" : "Super"; // ⌘
+				case ModifierKey::Alt: return sym ? "\xE2\x8C\xA5" : (mac ? "Opt" : "Alt"); // ⌥
+				case ModifierKey::Cmd: return sym ? "\xE2\x8C\x98" : (mac ? "Cmd" : "Super"); // ⌘
 				case ModifierKey::CapsLock: return sym ? "\xE2\x87\xAA" : "Caps"; // ⇪
 				case ModifierKey::None: break;
 				}
@@ -85,6 +86,11 @@ namespace core {
 				if (mods & ModAlt) s += "\xE2\x8C\xA5"; // ⌥
 				if (mods & ModShift) s += "\xE2\x87\xA7"; // ⇧
 				if (mods & ModCmd) s += "\xE2\x8C\x98"; // ⌘
+			} else if (mode == LabelMode::MacText) {
+				if (mods & ModCtrl) s += "Ctrl+";
+				if (mods & ModAlt) s += "Opt+";
+				if (mods & ModShift) s += "Shift+";
+				if (mods & ModCmd) s += "Cmd+";
 			} else {
 				if (mods & ModCtrl) s += "Ctrl+";
 				if (mods & ModAlt) s += "Alt+";

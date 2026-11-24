@@ -10,7 +10,8 @@ namespace core {
 
 	enum class LabelMode {
 		Symbols, // ⌃ ⌥ ⇧ ⌘ ↩ ...
-		Text, // Ctrl+Alt+Shift+Super+, Return ...
+		Text, // Ctrl+Alt+Shift+Super+, Return ... (Linux, Windows)
+		MacText, // Ctrl+Opt+Shift+Cmd+, Return ... (macOS without the symbols, D-031)
 	};
 
 	struct CoreSettings {

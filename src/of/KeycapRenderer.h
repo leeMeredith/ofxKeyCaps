@@ -5,6 +5,7 @@
 // host's GL state, style, camera and viewport as it found them (P2).
 
 #include "../core/CapHistory.h"
+#include "MacFontCheck.h"
 #include "Style.h"
 #include "ofTrueTypeFont.h"
 #include <cstdint>
@@ -17,7 +18,7 @@ namespace keycaps {
 	class KeycapRenderer {
 	public:
 		// Loads the font at the given pixel scale. Tries fonts that have the
-		// ⌃ ⌥ ⇧ ⌘ symbols first (D-027). Returns false if no font loaded.
+		// ⌃ ⌥ ⇧ ⌘ symbols first (D-028, D-032). Returns false if no font loaded.
 		bool setup(const Style & style, float pixelScale);
 
 		bool isLoaded() const { return font_.isLoaded(); }
@@ -27,6 +28,7 @@ namespace keycaps {
 		// True when the loaded font draws every symbol Symbols mode uses.
 		bool symbolsAvailable() const { return symbolsOk_; }
 		const std::string & fontName() const { return fontName_; }
+		// Why no font qualified, font by font, when symbolsAvailable() is false.
 		const std::string & missingSymbols() const { return missing_; }
 
 		void draw(const core::CapHistory & history, const Style & style, float pixelScale, double now);
@@ -37,7 +39,6 @@ namespace keycaps {
 		};
 
 		bool loadFont(const std::string & name, float pixelSize);
-		bool fontHasSymbols(const std::string & name, std::string & missing) const;
 
 		ofTrueTypeFont font_;
 		ofTrueTypeFont countFont_;

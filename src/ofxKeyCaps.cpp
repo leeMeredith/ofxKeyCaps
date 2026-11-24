@@ -33,15 +33,20 @@ void ofxKeyCaps::applyStyle() {
 		if (!renderer_.setup(style_, scale)) {
 			ofLogError("ofxKeyCaps") << "no font could be loaded; caps will not be drawn";
 		} else if (renderer_.symbolsAvailable()) {
-			ofLogVerbose("ofxKeyCaps") << "font \"" << renderer_.fontName() << "\" has every symbol";
+			ofLogNotice("ofxKeyCaps") << "font \"" << renderer_.fontName() << "\" has every symbol";
 		}
 	}
 
 	effective_ = style_.core;
 	if (effective_.labelMode == core::LabelMode::Symbols && renderer_.isLoaded() && !renderer_.symbolsAvailable()) {
-		ofLogWarning("ofxKeyCaps") << "font \"" << renderer_.fontName() << "\" is missing "
-								   << renderer_.missingSymbols() << "- using text labels instead";
-		effective_.labelMode = core::LabelMode::Text;
+#if defined(TARGET_OSX)
+		const core::LabelMode fallback = core::LabelMode::MacText; // Cmd+, Opt+ (D-031)
+#else
+		const core::LabelMode fallback = core::LabelMode::Text;
+#endif
+		ofLogWarning("ofxKeyCaps") << "no font with every symbol: " << renderer_.missingSymbols()
+								   << "- using text labels with \"" << renderer_.fontName() << "\"";
+		effective_.labelMode = fallback;
 	}
 	history_.setSettings(effective_);
 	log_.setSettings(effective_);

@@ -10,20 +10,17 @@ namespace keycaps {
 
 	namespace {
 		// Every symbol Symbols mode can draw (KEYCAPS.md 6.3, 6.9).
-		const uint32_t kSymbols[] = {
+		const std::vector<uint32_t> kSymbols = {
 			0x2303, 0x2325, 0x21E7, 0x2318, 0x21EA, // ⌃ ⌥ ⇧ ⌘ ⇪
 			0x21A9, 0x21E5, 0x232B, 0x2326, 0x238B, // ↩ ⇥ ⌫ ⌦ ⎋
 			0x2190, 0x2191, 0x2192, 0x2193, // ← ↑ → ↓
 			0x25CF, 0x00D7, 0x2022, // ● × •
 		};
 
-		// An unassigned codepoint: every font draws its "missing glyph" for it.
-		const uint32_t kMissingProbe = 0x0378;
-
-		// Fonts to try, symbol-capable first (D-027).
+		// Fonts to try, symbol-capable first (D-028, D-032).
 		std::vector<std::string> candidateFonts() {
 #if defined(TARGET_OSX)
-			return { "Lucida Grande", OF_TTF_SANS };
+			return { "Lucida Grande", "Menlo", OF_TTF_SANS };
 #elif defined(TARGET_LINUX)
 			return { "DejaVu Sans", OF_TTF_SANS };
 #elif defined(TARGET_WIN32)
@@ -33,48 +30,12 @@ namespace keycaps {
 #endif
 		}
 
-		bool samePath(const ofPath & a, const ofPath & b) {
-			const auto & oa = a.getOutline();
-			const auto & ob = b.getOutline();
-			if (oa.size() != ob.size()) return false;
-			for (size_t i = 0; i < oa.size(); ++i) {
-				const auto & va = oa[i].getVertices();
-				const auto & vb = ob[i].getVertices();
-				if (va.size() != vb.size()) return false;
-				for (size_t j = 0; j < va.size(); ++j) {
-					if (glm::distance(va[j], vb[j]) > 1e-3f) return false;
-				}
-			}
-			return true;
-		}
-
 		std::string utf8(uint32_t cp) {
 			std::string s;
 			core::CapLabeler::appendUtf8(s, cp);
 			return s;
 		}
 	} // namespace
-
-	// A font "has" a symbol when its outline differs from the font's
-	// missing-glyph outline. ofTrueTypeFont::isValidGlyph only checks the
-	// requested ranges, not the font, so this compares outlines instead.
-	bool KeycapRenderer::fontHasSymbols(const std::string & name, std::string & missing) const {
-		ofTrueTypeFontSettings probe(name, 24);
-		probe.contours = true;
-		probe.antialiased = true;
-		probe.addRange({ kMissingProbe, kMissingProbe });
-		for (uint32_t cp : kSymbols) probe.addRange({ cp, cp });
-
-		ofTrueTypeFont f;
-		if (!f.load(probe)) return false;
-
-		const ofPath notdef = f.getCharacterAsPoints(kMissingProbe);
-		missing.clear();
-		for (uint32_t cp : kSymbols) {
-			if (samePath(f.getCharacterAsPoints(cp), notdef)) missing += utf8(cp) + " ";
-		}
-		return missing.empty();
-	}
 
 	bool KeycapRenderer::loadFont(const std::string & name, float pixelSize) {
 		ofTrueTypeFontSettings s(name, std::max(1, static_cast<int>(std::lround(pixelSize))));
@@ -101,15 +62,27 @@ namespace keycaps {
 
 		const float px = style.fontSize * scale_;
 		for (const std::string & name : candidateFonts()) {
-			std::string missing;
-			if (fontHasSymbols(name, missing)) {
+			// CoreText says whether the font really has every symbol (D-032).
+			const FontCheck check = checkFontCoverage(name, kSymbols);
+			if (!check.checked) {
+				missing_ = "(the symbol check needs macOS) ";
+				break;
+			}
+			if (check.found && check.missing.empty()) {
 				if (loadFont(name, px)) {
 					symbolsOk_ = true;
 					return true;
 				}
-			} else if (missing_.empty()) {
-				missing_ = missing; // from the first font that loaded
+				continue;
 			}
+			std::string report = "\"" + name + "\" ";
+			if (!check.found) {
+				report += "not installed (macOS offered \"" + check.resolvedName + "\") ";
+			} else {
+				report += "lacks ";
+				for (uint32_t cp : check.missing) report += utf8(cp) + " ";
+			}
+			missing_ += report;
 		}
 		// No candidate has every symbol: use the first that loads at all.
 		for (const std::string & name : candidateFonts()) {

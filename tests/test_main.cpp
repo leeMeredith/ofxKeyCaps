@@ -91,6 +91,18 @@ static void suiteLabeler(Ctx & ctx) {
 	CHECK_STR(CapLabeler::modifierPrefix(ModCmd | ModShift | ModAlt | ModCtrl, S), CTRL + ALT + SHIFT + CMD);
 	CHECK_STR(CapLabeler::modifierPrefix(ModCmd | ModCtrl, T), "Ctrl+Super+");
 
+	// Mac text mode: the fallback on macOS when no font has the symbols (D-031).
+	const LabelMode M = LabelMode::MacText;
+	CHECK_STR(CapLabeler::modifierPrefix(ModCmd | ModShift | ModAlt | ModCtrl, M), "Ctrl+Opt+Shift+Cmd+");
+	CHECK_STR(CapLabeler::keyLabel(ch('x', ModCmd), M), "Cmd+X");
+	CHECK_STR(CapLabeler::keyLabel(ch('k', ModAlt), M), "Opt+K");
+	CHECK_STR(CapLabeler::keyLabel(KeyStroke::modifierOnly(ModifierKey::Cmd), M), "Cmd");
+	CHECK_STR(CapLabeler::keyLabel(KeyStroke::modifierOnly(ModifierKey::Alt), M), "Opt");
+	CHECK_STR(CapLabeler::keyLabel(sp(SpecialKey::Return), M), "Return");
+	CHECK_STR(CapLabeler::mouseLabel(MouseButton::Left, 0, ModCmd, false, M), "Cmd+Click");
+	CHECK_STR(CapLabeler::countSuffix(3, M), "x3");
+	CHECK_STR(CapLabeler::scrollLabel(ScrollDir::Right, M), "Scroll Right");
+
 	// Shift rules.
 	CHECK_STR(CapLabeler::keyLabel(ch('A', ModShift), S), "A");
 	CHECK_STR(CapLabeler::keyLabel(ch('!', ModShift), S), "!");

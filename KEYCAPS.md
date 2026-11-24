@@ -70,6 +70,7 @@ ofxKeyCaps/
       InputSource.h
       OfInputSource.h/.cpp
       KeycapRenderer.h/.cpp
+      MacFontCheck.h/.cpp  asks CoreText which symbols a font has (D-032)
   tests/                 headless tests of src/core: `make test`, `make headers`, `make mutate`
     test_main.cpp
     mutate.sh            breaks one rule at a time in a copy of src/core (D-026)
@@ -124,11 +125,11 @@ Turns a KeyStroke or a MouseAction into label text. It has no state.
 
 Keys:
 - Modifier order is ⌃ ⌥ ⇧ ⌘ (the macOS convention).
-- Symbol mode (default on macOS) uses the symbols ⌃ ⌥ ⇧ ⌘. Text mode (default on Linux and Windows) uses `Ctrl+Alt+Shift+Super+`.
+- Symbol mode (default on macOS) uses the symbols ⌃ ⌥ ⇧ ⌘. Text mode (default on Linux and Windows) uses `Ctrl+Alt+Shift+Super+`. Mac text mode uses `Ctrl+Opt+Shift+Cmd+`, and is what macOS falls back to when no font has the symbols (D-031).
 - Letters in a combo are shown uppercase: ⌘S, ⌘⇧Z.
 - Shift is not shown when it only produced the character itself: typing `A` or `!` shows `A` or `!`, not ⇧A. Shift is shown when it is combined with another modifier or a special key: ⌘⇧Z, ⇧Tab, ⇧↓.
 - Option shows the key pressed, not the character it composes: Option+a shows `⌥A`, not `å` (D-016). The same holds for Ctrl: Ctrl+a shows `⌃A`.
-- A modifier-only cap (when `showModifierOnly` is on) shows the modifier's symbol alone: ⇧, ⌃, ⌥, ⌘, and ⇪ for Caps Lock. Text mode uses Shift, Ctrl, Alt, Super, Caps.
+- A modifier-only cap (when `showModifierOnly` is on) shows the modifier's symbol alone: ⇧, ⌃, ⌥, ⌘, and ⇪ for Caps Lock. Text mode uses Shift, Ctrl, Alt, Super, Caps. Mac text mode uses Shift, Ctrl, Opt, Cmd, Caps.
 - Special key labels:
   - Symbol mode: Return ↩, Tab ⇥, Backspace ⌫, Delete ⌦, Escape ⎋, arrows ← → ↑ ↓.
   - Text mode: Return, Tab, Bksp, Del, Esc, Left, Right, Up, Down.
@@ -276,9 +277,9 @@ State isolation:
 - `draw()` saves and restores style and matrix (push/pop style, view and matrix), sets up a screen-space view for itself, and leaves depth test, blending, the camera and the viewport as it found them.
 
 Font (D-028):
-- A FreeType font has no fallback for missing glyphs, and the system sans font on macOS (Helvetica Neue) may lack ⌘ and ⌥. So fonts are tried in order, symbol-capable first: on macOS `Lucida Grande` then `OF_TTF_SANS`; on Linux `DejaVu Sans` then `OF_TTF_SANS`; on Windows `Segoe UI Symbol` then `OF_TTF_SANS`. All are system fonts, so P1 holds.
-- A font counts as having a symbol when the symbol's outline differs from the font's missing-glyph outline (the outline drawn for the unassigned codepoint U+0378). `ofTrueTypeFont::isValidGlyph` cannot be used for this: it only checks the requested ranges, not the font.
-- The first font with every symbol (⌃ ⌥ ⇧ ⌘ ⇪ ↩ ⇥ ⌫ ⌦ ⎋ ← ↑ → ↓ ● × •) is used. If none has them all, the first font that loads is used, Symbols mode falls back to Text mode, and a warning names the missing symbols.
+- A FreeType font has no fallback for missing glyphs, and the system sans font on macOS (Helvetica Neue) may lack ⌘ and ⌥. So fonts are tried in order, symbol-capable first: on macOS `Lucida Grande`, then `Menlo`, then `OF_TTF_SANS`; on Linux `DejaVu Sans` then `OF_TTF_SANS`; on Windows `Segoe UI Symbol` then `OF_TTF_SANS`. All are system fonts, so P1 holds.
+- On macOS, CoreText is asked whether the font has each symbol (`MacFontCheck`, D-032). It also reports when macOS substituted a different font for the name. `ofTrueTypeFont::isValidGlyph` cannot be used for this: it only checks the requested ranges, not the font. On Linux and Windows there is no check yet, so those platforms stay on text labels (their default).
+- The first font with every symbol (⌃ ⌥ ⇧ ⌘ ⇪ ↩ ⇥ ⌫ ⌦ ⎋ ← ↑ → ↓ ● × •) is used, and a notice names it. If none has them all, the first font that loads is used, labels fall back to Mac text mode (macOS) or Text mode (elsewhere), and a warning says, font by font, what was missing or not installed.
 - The font is loaded at `fontSize` × pixel scale and reloaded if the window moves to a display with a different scale.
 - Confirmed on screen in step 4 (PENDING-2).
 
@@ -350,7 +351,7 @@ Limits:
 - `maxTextChars` 24.
 
 Behavior:
-- `labelMode`: Symbols (default on macOS), Text (default on Linux and Windows). Used by caps and log lines.
+- `labelMode`: Symbols (default on macOS), Text (default on Linux and Windows), or MacText. Used by caps and log lines.
 - `showModifierOnly`: false.
 - `showMouse`: false.
 - `log`: true.
@@ -413,9 +414,7 @@ The renderer, OfInputSource and the terminal output are verified on screen in `e
 ## 13. Pending items (the only parts not frozen)
 
 - **PENDING-1.** Resolved by D-015 (key translation rules in section 6.8).
-- **PENDING-2.** Whether `OF_TTF_SANS` with the requested glyph ranges draws ⌃ ⌥ ⇧ ⌘ ⇪ ↩ ⇥ ⌫ ⌦ ⎋ ● on macOS, and what happens on Linux. Resolved by step 4.
+- **PENDING-2.** Whether the symbols draw on screen on macOS. The first run fell back to text because the D-028 check was wrong; D-032 replaces the check. Resolved when `example-basic` reports a font with every symbol and the caps show ⌘ ⌥ ⇧ correctly. Linux and Windows stay on text labels for v1.
 - **PENDING-3.** Default keys for `markKey` and `toggleKey`, or keeping both unset. Mac laptop F-keys need Fn, so an F-key may be a poor default. Resolved by step 5.
 - **PENDING-4.** License (to match Lee's other published addons). Resolved before step 6.
-- **PENDING-5.** Mouse fields, mostly resolved by D-020. Two things could not be measured with a trackpad and are checked in step 4 instead:
-  - The horizontal scroll labels (D-022): in `example-basic` the grid moves the way the content of any Mac window would. Swipe two fingers left: the grid should follow your fingers left, the terminal should print `grid moved LEFT`, and the cap should read `Scroll →`. If the grid moves the other way from your fingers horizontally but not vertically, D-022 is reversed.
-  - Option+click alone, and buttons 3–8: oF's source says Option+click arrives as middle. Extra buttons need a mouse that has them. Until a mouse confirms them, the labels follow the source code.
+- **PENDING-5.** Mouse fields, resolved by D-020 and D-033, except one item that needs hardware: Option+click alone, and buttons 3–8. oF's source says Option+click arrives as middle; extra buttons need a mouse that has them. Until a mouse confirms them, the labels follow the source code.

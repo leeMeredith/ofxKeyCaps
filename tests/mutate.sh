@@ -57,6 +57,10 @@ mutant "D-015 Ctrl combos read key instead of keycode" Keys RawInput.cpp \
 	'const bool ctrlOrAlt = (out.modifiers & (ModCtrl | ModAlt)) != 0;' \
 	'const bool ctrlOrAlt = false;'
 
+mutant "D-031 Mac text mode says Super" Labeler CapLabeler.cpp \
+	'if (mods & ModCmd) s += "Cmd+";' \
+	'if (mods & ModCmd) s += "Super+";'
+
 mutant "R8 overflow at 25 instead of 24" Merge CapHistory.cpp \
 	'CapLabeler::codepointCount(n->label) < settings_.maxTextChars' \
 	'CapLabeler::codepointCount(n->label) <= settings_.maxTextChars'

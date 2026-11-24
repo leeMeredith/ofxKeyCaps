@@ -46,7 +46,7 @@ public:
 	void clear();
 
 	// True when the loaded font draws ⌃ ⌥ ⇧ ⌘ and the other symbols. When it
-	// does not, Symbols mode falls back to Text mode (PENDING-2, D-027).
+	// does not, Symbols mode falls back to text labels (PENDING-2, D-031, D-032).
 	bool symbolsAvailable() const { return renderer_.symbolsAvailable(); }
 
 private:
