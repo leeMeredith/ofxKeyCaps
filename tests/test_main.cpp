@@ -5,6 +5,7 @@
 #include "CapHistory.h"
 #include "CapLabeler.h"
 #include "EventLog.h"
+#include "Hotkey.h"
 #include "RawInput.h"
 #include "ScrollGesture.h"
 
@@ -661,6 +662,8 @@ static void suiteLog(Ctx & ctx) {
 		}
 	}
 	CHECK_INT(lines, 1);
+	// A note line, used for (hidden) and (shown).
+	CHECK_STR(m.note(7.5, "(hidden)"), "00:00:07.500  (hidden)");
 	// The brush logs nothing.
 	CHECK(!m.log(MouseAction::scroll(0, 0.1f), 9.0, line));
 	CHECK(!m.log(MouseAction::scroll(0, 0.1f), 9.017, line));
@@ -739,6 +742,52 @@ static void suiteKeys(Ctx & ctx) {
 }
 
 //--------------------------------------------------------------
+// Hotkeys (KEYCAPS.md 7, D-034), through the real key translation
+//--------------------------------------------------------------
+static KeyStroke rawStroke(int key, int keycode, int mods, bool repeat = false) {
+	RawKey r;
+	r.key = key;
+	r.keycode = keycode;
+	r.modifiers = mods;
+	r.isRepeat = repeat;
+	KeyStroke k;
+	translateKey(r, k);
+	return k;
+}
+
+static void suiteHotkeys(Ctx & ctx) {
+	const Hotkey mark = Hotkey::character('m', ModCtrl | ModShift); // the default ⌃⇧M
+	const Hotkey toggle = Hotkey::character('K', ModCtrl | ModShift); // given uppercase: still ⌃⇧K
+	const int ctrlShift = raw::ModControl | raw::ModShift;
+
+	// ⌃⇧M arrives as a control code (Ctrl+M is 13) with keycode 'M'.
+	CHECK(matches(mark, rawStroke(13, 'M', ctrlShift)));
+	CHECK(matches(toggle, rawStroke(11, 'K', ctrlShift)));
+	// Exactly these modifiers: not fewer, not more.
+	CHECK(!matches(mark, rawStroke(13, 'M', raw::ModControl)));
+	CHECK(!matches(mark, rawStroke(0xB5, 'M', ctrlShift | raw::ModAlt)));
+	CHECK(!matches(mark, rawStroke('m', 'M', 0)));
+	CHECK(!matches(mark, rawStroke('M', 'M', raw::ModShift)));
+	// A different key, and a held key's repeats, never match.
+	CHECK(!matches(mark, rawStroke(11, 'K', ctrlShift)));
+	CHECK(!matches(mark, rawStroke(13, 'M', ctrlShift, true)));
+	// Cmd hotkeys compare the layout character without case.
+	CHECK(matches(Hotkey::character('k', ModCmd | ModShift), rawStroke('K', 'K', raw::ModSuper | raw::ModShift)));
+	// Special-key hotkeys.
+	const Hotkey f5 = Hotkey::specialKey(SpecialKey::F5);
+	CHECK(matches(f5, rawStroke(0xe004, raw::CodeF1 + 4, 0)));
+	CHECK(!matches(f5, rawStroke(0xe004, raw::CodeF1 + 4, raw::ModShift)));
+	// Turned off.
+	CHECK(!Hotkey::none().isSet());
+	CHECK(!matches(Hotkey::none(), rawStroke(13, 'M', ctrlShift)));
+	CHECK(!matches(Hotkey::none(), KeyStroke()));
+	// Labels for the setup notice.
+	CHECK_STR(CapLabeler::keyLabel(mark.asStroke(), LabelMode::Symbols), CTRL + SHIFT + "M");
+	CHECK_STR(CapLabeler::keyLabel(toggle.asStroke(), LabelMode::MacText), "Ctrl+Shift+K");
+	CHECK_STR(CapLabeler::keyLabel(f5.asStroke(), LabelMode::Symbols), "F5");
+}
+
+//--------------------------------------------------------------
 int main() {
 	struct Suite {
 		const char * name;
@@ -755,6 +804,7 @@ int main() {
 		{ "Capacity", suiteCapacity },
 		{ "Mask", suiteMask },
 		{ "Log", suiteLog },
+		{ "Hotkeys", suiteHotkeys },
 	};
 	int green = 0, red = 0;
 	for (const Suite & s : suites) {

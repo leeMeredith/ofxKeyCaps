@@ -123,3 +123,15 @@ On the first run of `example-basic` (2026-11-24), the outline comparison of D-02
 
 ## D-033 — Horizontal scroll confirmed on screen (confirms D-022, resolves PENDING-5 except extra buttons)
 In the first `example-basic` run, every gesture after which the grid moved left was labelled `Scroll Right` (for example, the grid moved left by 180 px after a `Scroll Right`), and Lee reported the run as good. The grid moves the way a Mac window's content does, so D-022's convention stands: negative `scrollX` is `Scroll →`. The same run showed, live: Ctrl+M logged as `Ctrl+M`, not Return (D-027), right-drags labelled `Right-drag`, and every F-key from F1 to F10 and F12.
+
+## D-034 — Hotkeys: ⌃⇧M marks, ⌃⇧K shows and hides, both changeable (resolves PENDING-3)
+Lee asked for defaults that he can change, because he uses many keys and can't predict which will clash, and he will use these only once per recording. Both keys are `core::Hotkey` values in Style, which hold a key and an exact set of modifiers. `Hotkey::none()` turns one off. The first choice, ⌃⌥M and ⌃⌥K, was dropped because ⌃⌥ is VoiceOver's own modifier: with VoiceOver on, those presses never reach the app. ⌘ combos belong to the app's menus, and F-keys need Fn on Mac laptops. The hotkeys never become caps or log lines, the show/hide key works while hidden, and holding either key fires it once. Matching is in the core (`Hotkey.h`) and is tested through the real key translation: ⌃⇧M arrives as control code 13 with keycode `M`. Two new mutants (extra modifiers matching, repeats firing) are caught: 16 of 16.
+
+## D-035 — Hiding and showing write log lines
+`setEnabled` writes `(hidden)` or `(shown)` to the log with a timestamp. Nothing else is logged while hidden (as before), so these lines show where a recording has gaps.
+
+## D-036 — Dead-key characters show as typed
+On a US layout, Option+I is a dead key: it shows as `⌥I` (D-016), and the next key arrives from macOS already combined. In the second `example-basic` run, Option+I then `a` logged `â`. That cap shows the character that was typed, which matches what a viewer sees appear in the app. Accepted for v1. If Lee prefers the bare key (`A`), this is a change in RawInput, logged as a reversal here.
+
+## D-037 — Symbols confirmed in the log (PENDING-2, on-screen look still to confirm)
+In the second `example-basic` run (2026-11-24), the CoreText check found every symbol in Lucida Grande. The log printed `● MARK`, `⌘L`, `⌃K`, `⌥K`, `⎋` and the four scroll arrows. That the caps draw these glyphs correctly, at a good size and position, is for Lee to confirm on screen.

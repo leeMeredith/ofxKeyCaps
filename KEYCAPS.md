@@ -61,6 +61,7 @@ ofxKeyCaps/
       MouseAction.h
       CoreSettings.h     the core's part of Style (D-023)
       RawInput.h/.cpp    oF event numbers to KeyStrokes and MouseActions (D-027)
+      Hotkey.h           the mark and show/hide keys, and how a press matches them (D-034)
       CapLabeler.h/.cpp
       ScrollGesture.h/.cpp  shared gesture grouping (D-025)
       CapHistory.h/.cpp
@@ -308,14 +309,15 @@ Minimum host usage, the whole integration:
 
 ## 7. Controls
 
-- **Sync mark.** `mark()`, or `Style.markKey` when it is set (unset by default). A mark does three things at the same moment:
+- **Sync mark.** `mark()`, or `Style.markKey`: ⌃⇧M by default (D-034). A mark does three things at the same moment:
   - EventLog prints `00:00:00.000  ● MARK` and resets its zero.
   - A mark cap labelled `● MARK` is added, drawn in `markColor`, with the normal lifetime.
   - The mark key itself is never shown as a normal cap or logged as a key.
   The mark cap appears in the recording at the moment the log's zero resets, so it works like a clapperboard: find that frame, and every logged time lines up from there.
-- **Hide/show toggle key.** Off by default (`Style.toggleKey` unset). When set, pressing it switches `setEnabled`. The key is never shown as a cap.
+- **Hide/show toggle key.** `Style.toggleKey`: ⌃⇧K by default (D-034). Pressing it switches `setEnabled`, and it works while the caps are hidden. The key is never shown as a cap or logged as a key. Each switch writes a `(hidden)` or `(shown)` line to the log, so hidden stretches of a recording can be found (D-035).
+- **Changing or turning off the keys.** Both are `core::Hotkey` values in Style: `Hotkey::character('m', ModCtrl | ModShift)`, `Hotkey::specialKey(SpecialKey::F5)`, or `Hotkey::none()` to turn one off. A press matches only with exactly the hotkey's modifiers. Holding a hotkey down fires it once. At setup the log names both keys, for example `mark ⌃⇧M, show/hide ⌃⇧K`.
+- **Why ⌃⇧.** ⌃⌥ is VoiceOver's own modifier, so a ⌃⌥ hotkey would never reach the app while VoiceOver is on. ⌘ combos belong to the app's menus, and F-keys need Fn on Mac laptops. ⌃⇧ combos are rarely used by apps.
 - **Mask.** API only in v1: `setMasked(true)`. A mask hotkey can be added later through Style without a spec change to the core.
-- Default keys for `markKey` and `toggleKey` are PENDING-3.
 
 ## 8. Style (one plain struct, all fields have defaults)
 
@@ -355,8 +357,8 @@ Behavior:
 - `showModifierOnly`: false.
 - `showMouse`: false.
 - `log`: true.
-- `markKey`: unset.
-- `toggleKey`: unset.
+- `markKey`: ⌃⇧M (`core::Hotkey`, D-034).
+- `toggleKey`: ⌃⇧K (`core::Hotkey`, D-034).
 
 ## 9. Example log session
 
@@ -385,6 +387,7 @@ Required suites:
 - **Lifetime.** Hold, fade and removal at exact dt boundaries. Age resets when a cap changes. A held cap does not age. The same result whether dt comes as 1×1.0 s or 100×0.01 s.
 - **Capacity.** R9.
 - **Mask.** R2, M8, and masked log lines.
+- **Hotkeys.** ⌃⇧M and ⌃⇧K match through the real key translation (they arrive as control codes). Fewer or extra modifiers, other keys, and repeats do not match. Cmd hotkeys ignore case, special-key hotkeys work, `Hotkey::none()` never matches, and labels for the setup notice.
 - **Log.** Time format at 0, under a second, over an hour. The zero before the first mark. A mark resets the zero. One line per press. No lines for `isRepeat` or for scroll count increases. Mouse lines only when `showMouse` is on.
 
 Mutation check: each suite must be shown going RED at least once, by deliberately breaking the rule it covers, before it counts. `make mutate` does this with `tests/mutate.sh`: it copies `src/core`, breaks one rule per mutant, rebuilds the tests against the copy and requires the covering suite to go RED. It also breaks principle P3 (an `ofMain.h` include) and requires `make headers` to go RED. `src/core` itself is never touched.
@@ -407,7 +410,7 @@ The renderer, OfInputSource and the terminal output are verified on screen in `e
    The results go into DECISIONS.md and resolve PENDING-1 and PENDING-5. Done: three passes, recorded as D-015 to D-022.
 3. Core (KeyStroke, MouseAction, CoreSettings, CapLabeler, ScrollGesture, CapHistory, EventLog) with tests, all GREEN and each one shown RED. Done.
 4. RawInput (in the core, with its Keys suite), OfInputSource, KeycapRenderer, the front end, and `example-basic`, verified on screen and in the terminal. This resolves PENDING-2 and the rest of PENDING-5.
-5. Style options, mark key, toggle key and mask. This resolves PENDING-3.
+5. Style options, mark key, toggle key and mask. This resolves PENDING-3 (D-034).
 6. README and publish.
 7. (Later, optional) MacGlobalInputSource. It gets its own spec section before any code.
 
@@ -415,6 +418,6 @@ The renderer, OfInputSource and the terminal output are verified on screen in `e
 
 - **PENDING-1.** Resolved by D-015 (key translation rules in section 6.8).
 - **PENDING-2.** Whether the symbols draw on screen on macOS. The first run fell back to text because the D-028 check was wrong; D-032 replaces the check. Resolved when `example-basic` reports a font with every symbol and the caps show ⌘ ⌥ ⇧ correctly. Linux and Windows stay on text labels for v1.
-- **PENDING-3.** Default keys for `markKey` and `toggleKey`, or keeping both unset. Mac laptop F-keys need Fn, so an F-key may be a poor default. Resolved by step 5.
+- **PENDING-3.** Resolved by D-034: ⌃⇧M marks and ⌃⇧K shows or hides, both changeable or able to be turned off.
 - **PENDING-4.** License (to match Lee's other published addons). Resolved before step 6.
 - **PENDING-5.** Mouse fields, resolved by D-020 and D-033, except one item that needs hardware: Option+click alone, and buttons 3–8. oF's source says Option+click arrives as middle; extra buttons need a mouse that has them. Until a mouse confirms them, the labels follow the source code.

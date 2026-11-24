@@ -101,5 +101,13 @@ mutant "P3 core includes ofMain.h" Headers KeyStroke.h \
 	'#include <cstdint>' \
 	$'#include <cstdint>\n#include "ofMain.h"'
 
+mutant "D-034 hotkey matches with extra modifiers" Hotkeys Hotkey.h \
+	'if (k.modifiers != h.modifiers) return false;' \
+	'if ((k.modifiers & h.modifiers) != h.modifiers) return false;'
+
+mutant "D-034 held hotkey repeats" Hotkeys Hotkey.h \
+	'if (!h.isSet() || k.isRepeat || k.isModifierOnly()) return false;' \
+	'if (!h.isSet() || k.isModifierOnly()) return false;'
+
 echo "mutants: $caught caught, $survived survived, $broken broken"
 [ "$survived" -eq 0 ] && [ "$broken" -eq 0 ]

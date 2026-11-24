@@ -8,9 +8,13 @@
 //     ofxKeyCaps keys;          // member of ofApp
 //     keys.setup();             // in setup()
 //     keys.draw();              // last line of draw()
+//
+// Keys: ⌃⇧M marks (the log's zero resets and "● MARK" shows), ⌃⇧K shows
+// and hides. Change them in Style (markKey, toggleKey) or turn them off.
 
 #include "core/CapHistory.h"
 #include "core/EventLog.h"
+#include "core/Hotkey.h"
 #include "of/KeycapRenderer.h"
 #include "of/OfInputSource.h"
 #include "of/Style.h"
@@ -55,6 +59,7 @@ private:
 	void handleMouse(const ofx::keycaps::core::MouseAction & m);
 	void applyStyle();
 	void print(const std::string & line) const;
+	void printHotkeys() const;
 	float pixelScale() const;
 	double now() const;
 

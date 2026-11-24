@@ -31,6 +31,9 @@ namespace core {
 		// Resets the zero to `now` and returns "00:00:00.000  ● MARK".
 		std::string mark(double now);
 
+		// A timestamped line with any text, such as "(hidden)" (D-035).
+		std::string note(double now, const std::string & text) const { return stamp(now, text); }
+
 		double zero() const { return zero_; }
 
 		// HH:MM:SS.mmm, negative times clamped to zero.

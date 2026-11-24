@@ -14,7 +14,9 @@ void ofApp::setup() {
 			  << (keys.symbolsAvailable() ? "available" : "NOT available, using text labels")
 			  << std::endl;
 	std::cout << "example-basic: type, click, drag and scroll. Each scroll gesture also prints"
-			  << " which way the grid moved. Quit with Cmd+Q." << std::endl;
+			  << " which way the grid moved." << std::endl;
+	std::cout << "example-basic: Ctrl+Shift+M marks, Ctrl+Shift+K hides and shows the caps."
+			  << " Quit with Cmd+Q." << std::endl;
 }
 
 //--------------------------------------------------------------
@@ -47,6 +49,7 @@ void ofApp::draw() {
 	ofSetColor(200);
 	ofDrawBitmapString("ofxKeyCaps example-basic", 20, 30);
 	ofDrawBitmapString("Type, click, drag and scroll. The log prints in the Terminal. Cmd+Q quits.", 20, 50);
+	ofDrawBitmapString("Ctrl+Shift+M marks. Ctrl+Shift+K hides and shows the caps.", 20, 70);
 
 	keys.draw(); // last, on top of everything
 }

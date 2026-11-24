@@ -7,6 +7,13 @@
 
 using namespace ofx::keycaps;
 
+namespace {
+	core::KeyStroke nonRepeat(core::KeyStroke k) {
+		k.isRepeat = false;
+		return k;
+	}
+}
+
 ofxKeyCaps::~ofxKeyCaps() {
 	input_.stop();
 	updateListener_.unsubscribe();
@@ -25,6 +32,16 @@ void ofxKeyCaps::setup(const Style & style) {
 	input_.start([this](const core::KeyStroke & k) { handleKey(k); },
 		[this](const core::MouseAction & m) { handleMouse(m); });
 	updateListener_ = ofEvents().update.newListener(this, &ofxKeyCaps::onUpdate, OF_EVENT_ORDER_AFTER_APP);
+	printHotkeys();
+}
+
+void ofxKeyCaps::printHotkeys() const {
+	const core::LabelMode mode = effective_.labelMode;
+	auto describe = [&](const core::Hotkey & h) {
+		return h.isSet() ? core::CapLabeler::keyLabel(h.asStroke(), mode) : std::string("off");
+	};
+	ofLogNotice("ofxKeyCaps") << "mark " << describe(style_.markKey)
+							  << ", show/hide " << describe(style_.toggleKey);
 }
 
 void ofxKeyCaps::applyStyle() {
@@ -68,7 +85,19 @@ void ofxKeyCaps::onUpdate(ofEventArgs &) {
 }
 
 void ofxKeyCaps::handleKey(const core::KeyStroke & k) {
+	// The hotkeys are checked first and never become caps or log lines.
+	// The show/hide key works while hidden.
+	if (core::matches(style_.toggleKey, k)) {
+		setEnabled(!enabled_);
+		return;
+	}
 	if (!enabled_) return;
+	if (core::matches(style_.markKey, k)) {
+		mark();
+		return;
+	}
+	// Repeats of a held hotkey are swallowed too.
+	if (k.isRepeat && (core::matches(style_.toggleKey, nonRepeat(k)) || core::matches(style_.markKey, nonRepeat(k)))) return;
 	const double t = now();
 	history_.push(k, t);
 	std::string line;
@@ -91,8 +120,11 @@ void ofxKeyCaps::mark() {
 }
 
 void ofxKeyCaps::setEnabled(bool enabled) {
-	if (enabled && !enabled_) history_.clear(); // starts with no caps
+	if (enabled == enabled_) return;
+	if (enabled) history_.clear(); // starts with no caps
 	enabled_ = enabled;
+	// A line in the log, so a recording's hidden stretches can be found (D-035).
+	if (setup_) print(log_.note(now(), enabled ? "(shown)" : "(hidden)"));
 }
 
 void ofxKeyCaps::setMasked(bool masked) {
