@@ -106,6 +106,7 @@ One mouse button event as the core sees it. It carries no oF types and no positi
 - `phase`: Down, Up, Drag, or Scroll.
 - `modifiers`: the same bitmask as KeyStroke.
 - `scrollX`, `scrollY`: used only when `phase` is Scroll.
+- `dragDistance`: used only when `phase` is Drag. How far the pointer has moved from where the button went down, in logical points. OfInputSource fills it in, so the core still never sees a position.
 
 ### 6.3 CapLabeler (core, pure)
 
@@ -126,8 +127,9 @@ Keys:
 Mouse (modifier prefix as for keys, Shift always shown):
 - Button names: `Click` (left), `Right-click`, `Middle-click`, `Button 4` to `Button 8`.
 - While dragging, `click` becomes `drag`: `Drag`, `Right-drag`, `Middle-drag`, `Button 4 drag`.
-- Scroll: `Scroll ↑`, `Scroll ↓`, `Scroll ←` or `Scroll →`, chosen from the gesture's summed `scrollX` and `scrollY` (M6). Text mode uses Up, Down, Left, Right. Negative `scrollY` is `Scroll ↓`, positive is `Scroll ↑` (measured, D-018). The sign for horizontal is PENDING-5.
-- Examples: `⇧Click`, `⌘Right-click`, `⌥Drag`.
+- Scroll: `Scroll ↑`, `Scroll ↓`, `Scroll ←` or `Scroll →`, chosen from the gesture's summed `scrollX` and `scrollY` (M6). Text mode uses Up, Down, Left, Right. Negative `scrollY` is `Scroll ↓`, positive is `Scroll ↑` (measured, D-018). Negative `scrollX` is `Scroll →`, positive is `Scroll ←`, following the same convention: negative means moving toward the end of the content (D-022, confirmed on screen in step 4).
+- A `Right-click` or `Right-drag` never shows ⌃, and a `Middle-click` or `Middle-drag` never shows ⌥ (D-021). On macOS, oF turns Ctrl+click into a right-click and Option+click into a middle-click, but leaves the modifier in the event.
+- Examples: `⇧Click`, `⌘Right-click`, `⌘Drag`.
 
 ### 6.4 CapHistory (core, stateful, pure)
 
@@ -174,12 +176,13 @@ Defaults (all in Style):
 - M1. **Down** makes a mouse cap labelled for that button and those modifiers, with `held` set.
 - M2. **Held.** A held cap stays fully opaque and does not age. The renderer draws it in `pressedColor`.
 - M3. **Up** clears `held` on that button's cap, and its age starts from 0, so it holds for `holdTime` and then fades.
-- M4. **Drag.** The first Drag event while a button is held changes that cap's label from click to drag (R5 does not apply). Later Drag events are ignored. There is no cap per mouse movement.
+- M4. **Drag.** The first Drag event while a button is held whose `dragDistance` reaches `dragThreshold` changes that cap's label from click to drag (R5 does not apply). Drag events below the threshold, and all later Drag events, are ignored. There is no cap per mouse movement. The threshold exists because a plain trackpad click often sends one to four Drag events that move the pointer up to 2 points (D-020).
 - M5. **Repeated clicks.** A Down whose label equals the newest cap's label, arriving within `repeatWindow` of that cap's Up, increases its count and sets `held` again (`Click ×3`). This is counting, not double-click detection.
 - M6. **Scroll gestures.** A trackpad sends about 60 Scroll events a second, keeps sending through the momentum after the fingers lift, and mixes a small cross-axis amount into straight swipes (D-018). So events are grouped into **gestures**, and a gesture is one action:
   - Scroll events with no gap longer than `scrollGap` belong to the same gesture, momentum included.
   - The gesture's direction comes from its running sums of `scrollX` and `scrollY`: the axis with the larger absolute sum, and that sum's sign.
-  - The first event of a gesture makes a scroll cap, or increases the newest cap's count if it is a scroll cap with the same direction whose gesture ended within `repeatWindow` (`Scroll ↓ ×3` is three swipes). The cap's label follows the running sums while the gesture lasts.
+  - A gesture stays invisible until the absolute running sum on its direction axis reaches `scrollMinAmount`. A brush of the trackpad (measured: 3 events summing 0.3) makes no cap and no log line.
+  - When a gesture becomes visible, it makes a scroll cap, or increases the newest cap's count if that is a scroll cap with the same direction whose gesture ended within `repeatWindow` (`Scroll ↓ ×3` is three swipes). The cap's label follows the running sums while the gesture lasts.
   - A sign reversal on the gesture's direction axis ends the gesture, and the reversing event starts a new one.
   - A gesture holds its cap like a held button (M2) until it ends, then the cap ages normally.
 - M7. **Missed release.** A Down for a button whose cap is still held first releases that cap (as M3), then applies M1 or M5. This keeps a lost Up event from leaving a cap held forever.
@@ -195,8 +198,8 @@ Builds one text line for each press. It holds only the time of the last mark and
 - **Mask.** While masked, printable characters are logged as `•`.
 - **Mouse** (only when `showMouse` is on):
   - `Click down` and `Click up` (with the button's label and modifiers).
-  - `Drag start` once, at the first Drag event.
-  - `Scroll ↓` once per gesture, at the gesture's first event, with the direction taken from that event. Every later event in the gesture makes no line.
+  - `Drag start` once, at the Drag event that relabels the cap (M4).
+  - `Scroll ↓` once per gesture, at the moment it becomes visible (M6), with the direction from the running sums at that moment. Every other event in the gesture makes no line.
 - **Mark.** `mark(now)` makes the line `00:00:00.000  ● MARK` and resets the zero to `now`.
 - Disabled (section 6.10): nothing is logged.
 
@@ -218,7 +221,12 @@ The only job of an InputSource is to deliver KeyStrokes and MouseActions to a li
 
 - Listens to `ofEvents().keyPressed`, and to `mousePressed`, `mouseReleased`, `mouseDragged` and `mouseScrolled`, all at `OF_EVENT_ORDER_AFTER_APP`.
 - Its listeners always report the event as not consumed.
-- Translates `ofMouseEventArgs` into MouseActions. Which mouse fields it reads is PENDING-5.
+- Translates `ofMouseEventArgs` into MouseActions by these rules, measured on macOS with oF 0.12.1 (D-020):
+  - **Modifiers** come from the event's `modifiers` field, which is filled in on clicks (Cmd, Shift, Option and Ctrl were all seen).
+  - **Buttons** come from `button`: OF_MOUSE_BUTTON_LEFT (0), OF_MOUSE_BUTTON_MIDDLE (1), OF_MOUSE_BUTTON_RIGHT (2), and 3–7 for buttons 4–8. A two-finger trackpad click arrives as right. Ctrl+click arrives as right, with Ctrl still in `modifiers`.
+  - **Releases outside the window** are delivered, so a held cap is always released.
+  - **Drag distance** is measured from where the button went down, in logical points (window coordinates divided by the pixel density, when high-resolution mode is on).
+  - **Scroll** amounts pass through unchanged.
 - Translates `ofKeyEventArgs` into KeyStrokes by these rules, all measured on macOS with oF 0.12.1 (D-015):
   - **Modifiers** come from the event's `modifiers` field only. `ofGetKeyPressed()` is never used: in the probe it reported Shift as held for over two minutes after Shift was let go.
   - **Printable keys with Ctrl, Option or Cmd held** are identified by `keycode`, not `key`. Ctrl+a arrives with `key` = 0x01 (a control code), Option+a arrives with `key` = `å`, and both have `keycode` = 65 (`A`).
@@ -318,6 +326,10 @@ Timing:
 - `scrollGap` 0.3 s.
 - `slideTime` 0.15 s.
 
+Mouse thresholds:
+- `dragThreshold` 5 pt.
+- `scrollMinAmount` 1.0.
+
 Limits:
 - `maxCaps` 6.
 - `maxTextChars` 24.
@@ -351,8 +363,8 @@ Required suites:
 - **Labeler.** Modifier order. Shift rules (`A`, `!`, ⌘⇧Z, ⇧Tab). Every special key in both modes. Uppercase letters in combos. Every mouse button, click and drag labels, scroll directions, modifiers on mouse labels.
 - **Merge.** "hello" makes one cap. A gap longer than `mergeWindow` splits caps. Cmd+S breaks a text run. R4 Space cases. R8 overflow at 24 characters.
 - **Repeat.** ⌘Z three times makes `⌘Z ×3`. A gap longer than `repeatWindow` makes a new cap. Held keys follow R6.
-- **Mouse.** M0 drops everything when off. Down and Up hold and release (M1–M3). Drag relabels once (M4). Click ×3 (M5). Missed release (M7). Held caps survive capacity (R9).
-- **Scroll.** Replayed from the recorded probe gestures: each recorded swipe, momentum included, makes exactly one gesture, with the measured direction. Gaps just under and just over `scrollGap`. A sign reversal splits a gesture. Three swipes the same way make `Scroll ↓ ×3`. Cross-axis jitter (±0.1 to ±0.2) never changes the direction.
+- **Mouse.** M0 drops everything when off. Down and Up hold and release (M1–M3). Drag relabels once, only at or past `dragThreshold`, and the recorded click jitter (1 to 4 Drag events, up to 2 pt) never relabels (M4). Click ×3 (M5). Missed release (M7). Held caps survive capacity (R9). Right-click drops ⌃ and Middle-click drops ⌥ (D-021).
+- **Scroll.** Replayed from the recorded probe gestures: each recorded swipe, momentum included, makes exactly one gesture, with the measured direction. Gaps just under and just over `scrollGap`. A sign reversal splits a gesture. Three swipes the same way make `Scroll ↓ ×3`. Cross-axis jitter (±0.1 to ±0.2) never changes the direction. The recorded brush (3 events, sum 0.3) makes nothing, and a gesture logs once, when it crosses `scrollMinAmount`.
 - **Lifetime.** Hold, fade and removal at exact dt boundaries. Age resets when a cap changes. A held cap does not age. The same result whether dt comes as 1×1.0 s or 100×0.01 s.
 - **Capacity.** R9.
 - **Mask.** R2, M8, and masked log lines.
@@ -373,9 +385,9 @@ The renderer, OfInputSource and the terminal output are verified on screen in `e
 2. `example-keyprobe` prints the raw fields of every key and mouse event:
    - keys: `key`, `keycode`, `scancode`, `codepoint`, `modifiers`, `isRepeat`, for every key in a fixed probe list;
    - mouse: `button`, `type`, `modifiers`, `scrollX`, `scrollY`, for each button, with modifiers, while dragging, and while scrolling both ways.
-   The results go into DECISIONS.md and resolve PENDING-1 and PENDING-5.
+   The results go into DECISIONS.md and resolve PENDING-1 and PENDING-5. Done: three passes, recorded as D-015 to D-022.
 3. Core (KeyStroke, MouseAction, CapLabeler, CapHistory, EventLog) with tests, all GREEN and each one shown RED.
-4. OfInputSource and KeycapRenderer, plus `example-basic`, verified on screen and in the terminal. This resolves PENDING-2.
+4. OfInputSource and KeycapRenderer, plus `example-basic`, verified on screen and in the terminal. This resolves PENDING-2 and the rest of PENDING-5.
 5. Style options, mark key, toggle key and mask. This resolves PENDING-3.
 6. README and publish.
 7. (Later, optional) MacGlobalInputSource. It gets its own spec section before any code.
@@ -386,10 +398,6 @@ The renderer, OfInputSource and the terminal output are verified on screen in `e
 - **PENDING-2.** Whether `OF_TTF_SANS` with the requested glyph ranges draws ⌃ ⌥ ⇧ ⌘ ⇪ ↩ ⇥ ⌫ ⌦ ⎋ ● on macOS, and what happens on Linux. Resolved by step 4.
 - **PENDING-3.** Default keys for `markKey` and `toggleKey`, or keeping both unset. Mac laptop F-keys need Fn, so an F-key may be a poor default. Resolved by step 5.
 - **PENDING-4.** License (to match Lee's other published addons). Resolved before step 6.
-- **PENDING-5.** Mouse fields. Vertical scroll is resolved (D-018). Still to measure with a mouse-only probe run:
-  - Is `modifiers` filled in on clicks with Shift or Cmd held?
-  - Do Ctrl+click and Option+click arrive as right and middle buttons, as oF's macOS source code says? If so, M1 labels them `Right-click` and `Middle-click`, with no ⌃ or ⌥.
-  - Does `mouseReleased` arrive when the button is let go outside the window?
-  - Which sign of `scrollX` is a leftward swipe?
-  - Do extra buttons (4–8) arrive?
-  Resolved by a mouse-only run of `example-keyprobe` before step 4.
+- **PENDING-5.** Mouse fields, mostly resolved by D-020. Two things could not be measured with a trackpad and are checked in step 4 instead:
+  - The horizontal scroll labels (D-022): swipe left and right in `example-basic` and confirm that the arrow matches the way the content moved.
+  - Option+click alone, and buttons 3–8: oF's source says Option+click arrives as middle. Extra buttons need a mouse that has them. Until a mouse confirms them, the labels follow the source code.

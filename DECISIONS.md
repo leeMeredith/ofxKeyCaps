@@ -68,3 +68,19 @@ A trackpad swipe arrived as 44 to 73 scroll events over 0.7 to 1.2 s, about 60 a
 
 ## D-019 — A click that brings the window to the front is shown
 The click that focuses the probe window was delivered to the app (mouse down arrived just before mouse enter). The addon shows it like any other click rather than trying to filter it.
+
+## D-020 — Mouse translation rules, from probe pass 3 (resolves most of PENDING-5)
+Measured on a MacBook trackpad with oF 0.12.1. The rules are in KEYCAPS.md 6.8. What the probe showed:
+- The event's `modifiers` field is filled in on clicks: Cmd+click arrived as left with cmd, and clicks with Ctrl, Option and Shift held arrived with all three.
+- A two-finger trackpad click arrives as right (button 2). With Ctrl held, a click also arrived as right, with Ctrl still in `modifiers`, as oF's macOS source code says it should.
+- A button let go outside the window is still delivered, for both left and right drags, so a held cap cannot be left stuck.
+- A plain trackpad click often sends one to four Drag events, moving the pointer by up to 2 points. Real drags moved 30 to 300 points. Drag therefore only counts once the pointer has moved `dragThreshold` (5 pt) from where the button went down. To keep the core free of positions, OfInputSource measures the distance and passes it in `MouseAction.dragDistance`.
+- A light brush of the trackpad made a 3-event scroll gesture summing 0.3, while the smallest real swipe summed 2.8. Gestures below `scrollMinAmount` (1.0) make no cap and no log line.
+- The click that brings the window to the front was delivered again, confirming D-019.
+- Not measured: Option+click on its own, and mouse buttons 3 to 8 (no mouse with extra buttons was connected).
+
+## D-021 — Right-click hides ⌃, middle-click hides ⌥
+oF turns Ctrl+click into a right-click and Option+click into a middle-click, and keeps the modifier in the event. Showing `⌃Right-click` for what the viewer sees as a right-click would be confusing, so a right-button cap never shows ⌃ and a middle-button cap never shows ⌥. The cost is that a real right-click made while Ctrl is held also shows as a plain `Right-click`, which is accepted.
+
+## D-022 — Horizontal scroll uses the same convention as vertical
+Two horizontal gestures were recorded (sums of -2.8 and +39.6), but the run did not record which way the fingers moved for each one. The labels follow the vertical convention: a negative amount means moving toward the end of the content, so negative `scrollX` is `Scroll →` and positive is `Scroll ←`. This is confirmed on screen in step 4. If it turns out wrong, the fix is a sign change in CapLabeler, recorded as a reversal here.
