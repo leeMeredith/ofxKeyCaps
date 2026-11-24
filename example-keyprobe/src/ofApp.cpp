@@ -1,4 +1,5 @@
 #include "ofApp.h"
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -22,7 +23,17 @@ void ofApp::setup() {
 }
 
 //--------------------------------------------------------------
+void ofApp::update() {
+	if (scrollActive && ofGetElapsedTimef() - scrollLast > scrollGap) {
+		endScrollGesture();
+	}
+}
+
+//--------------------------------------------------------------
 void ofApp::exit() {
+	if (scrollActive) {
+		endScrollGesture();
+	}
 	ofRemoveListener(ofEvents().keyPressed, this, &ofApp::onKeyPressed, OF_EVENT_ORDER_AFTER_APP);
 	ofRemoveListener(ofEvents().keyReleased, this, &ofApp::onKeyReleased, OF_EVENT_ORDER_AFTER_APP);
 	ofRemoveListener(ofEvents().mousePressed, this, &ofApp::onMousePressed, OF_EVENT_ORDER_AFTER_APP);
@@ -37,7 +48,7 @@ void ofApp::exit() {
 //--------------------------------------------------------------
 void ofApp::draw() {
 	ofSetColor(255);
-	ofDrawBitmapString("ofxKeyCaps example-keyprobe", 20, 30);
+	ofDrawBitmapString("ofxKeyCaps example-keyprobe v2", 20, 30);
 	ofDrawBitmapString("Every event prints in the Terminal. Esc does not quit; use Cmd+Q.", 20, 50);
 	float y = 90;
 	for (const auto & line : recent) {
@@ -52,7 +63,7 @@ void ofApp::draw() {
 void ofApp::onKeyPressed(ofKeyEventArgs & e) {
 	std::ostringstream s;
 	s << prefix(e.isRepeat ? "KEY REPEAT " : "KEY DOWN   ")
-	  << "key=" << e.key << " " << describeKey(e.key)
+	  << "key=" << e.key << " " << describeKey(e.key, e.keycode)
 	  << "  keycode=" << e.keycode
 	  << "  scancode=" << e.scancode
 	  << "  codepoint=" << describeCodepoint(e.codepoint)
@@ -65,7 +76,7 @@ void ofApp::onKeyPressed(ofKeyEventArgs & e) {
 void ofApp::onKeyReleased(ofKeyEventArgs & e) {
 	std::ostringstream s;
 	s << prefix("KEY UP     ")
-	  << "key=" << e.key << " " << describeKey(e.key)
+	  << "key=" << e.key << " " << describeKey(e.key, e.keycode)
 	  << "  keycode=" << e.keycode
 	  << "  scancode=" << e.scancode
 	  << "  codepoint=" << describeCodepoint(e.codepoint)
@@ -117,13 +128,57 @@ void ofApp::onMouseDragged(ofMouseEventArgs & e) {
 }
 
 void ofApp::onMouseScrolled(ofMouseEventArgs & e) {
+	float now = ofGetElapsedTimef();
+	if (scrollActive && now - scrollLast > scrollGap) {
+		endScrollGesture();
+	}
+	if (!scrollActive) {
+		scrollActive = true;
+		scrollStart = now;
+		scrollEvents = 0;
+		scrollSumX = scrollSumY = 0.f;
+		scrollPeakX = scrollPeakY = 0.f;
+		scrollYSignChanges = 0;
+		scrollLastY = 0.f;
+		std::ostringstream s;
+		s << std::fixed << std::setprecision(3)
+		  << prefix("SCROLL START")
+		  << "first scrollX=" << e.scrollX << "  scrollY=" << e.scrollY
+		  << "  mods=" << describeModifiers(e.modifiers)
+		  << "  polled=" << polledModifiers();
+		emit(s.str());
+	}
+	++scrollEvents;
+	scrollLast = now;
+	scrollSumX += e.scrollX;
+	scrollSumY += e.scrollY;
+	if (std::fabs(e.scrollX) > std::fabs(scrollPeakX)) scrollPeakX = e.scrollX;
+	if (std::fabs(e.scrollY) > std::fabs(scrollPeakY)) scrollPeakY = e.scrollY;
+	if (e.scrollY != 0.f) {
+		if (scrollLastY != 0.f && (e.scrollY > 0.f) != (scrollLastY > 0.f)) {
+			++scrollYSignChanges;
+		}
+		scrollLastY = e.scrollY;
+	}
+}
+
+void ofApp::endScrollGesture() {
+	scrollActive = false;
+	const char * dominant;
+	if (std::fabs(scrollSumY) >= std::fabs(scrollSumX)) {
+		dominant = scrollSumY >= 0.f ? "Y positive" : "Y negative";
+	} else {
+		dominant = scrollSumX >= 0.f ? "X positive" : "X negative";
+	}
 	std::ostringstream s;
 	s << std::fixed << std::setprecision(3)
-	  << prefix("MOUSE SCROLL")
-	  << "scrollX=" << e.scrollX << "  scrollY=" << e.scrollY
-	  << "  button=" << describeButton(e.button)
-	  << "  mods=" << describeModifiers(e.modifiers)
-	  << "  polled=" << polledModifiers();
+	  << prefix("SCROLL END  ")
+	  << "events=" << scrollEvents
+	  << "  duration=" << (scrollLast - scrollStart)
+	  << "  sumX=" << scrollSumX << "  sumY=" << scrollSumY
+	  << "  peakX=" << scrollPeakX << "  peakY=" << scrollPeakY
+	  << "  ySignChanges=" << scrollYSignChanges
+	  << "  dominant=" << dominant;
 	emit(s.str());
 }
 
@@ -162,7 +217,17 @@ std::string ofApp::hex(int value) {
 	return s.str();
 }
 
-std::string ofApp::describeKey(int key) {
+std::string ofApp::describeKey(int key, int keycode) {
+	// Pressing a modifier sends two events with the same keycode: one whose
+	// key is the modifier's bit flag (OF_KEY_SHIFT, OF_KEY_CONTROL, ...),
+	// and one whose key is the left/right code (OF_KEY_LEFT_SHIFT, ...).
+	// GLFW modifier keycodes are 340-347.
+	if (keycode >= 340 && keycode <= 347) {
+		if (key == OF_KEY_SHIFT) return "(modifier flag: shift)";
+		if (key == OF_KEY_CONTROL) return "(modifier flag: ctrl)";
+		if (key == OF_KEY_ALT) return "(modifier flag: option)";
+		if (key == OF_KEY_SUPER) return "(modifier flag: cmd)";
+	}
 	// A list, not a switch: several OF_KEY_* names share a value
 	// (OF_KEY_COMMAND == OF_KEY_SUPER), and the first match wins.
 	static const std::vector<std::pair<int, const char *>> names = {
@@ -253,27 +318,27 @@ void ofApp::emit(const std::string & line) {
 }
 
 void ofApp::printChecklist() {
-	std::cout << "PROBE START  ofxKeyCaps example-keyprobe  openFrameworks "
+	std::cout << "PROBE START  ofxKeyCaps example-keyprobe v2  openFrameworks "
 			  << ofGetVersionMajor() << "." << ofGetVersionMinor() << "." << ofGetVersionPatch()
 			  << std::endl;
 	const char * lines[] = {
-		"Do each step with the probe window in front. Pause a second between steps.",
+		"Pass 2: only the steps pass 1 did not cover. Probe window in front.",
+		"Pause about two seconds between steps, so each one stands apart in the log.",
 		"KEYS",
-		"K1  a, then Shift+a, then 1, then Shift+1",
-		"K2  Space, Return, Tab, Backspace, Fn+Backspace (Delete), Esc",
-		"K3  the four arrows, then Fn+Left (Home), Fn+Right (End), Fn+Up (PageUp), Fn+Down (PageDown)",
-		"K4  F1 (with Fn if your F-keys are media keys), then F12",
-		"K5  Ctrl+a, Option+a, Cmd+s, Cmd+Shift+z",
-		"K6  Shift alone, Ctrl alone, Option alone, Cmd alone (tap each and let go)",
-		"K7  hold a for about two seconds, then let go",
-		"K8  hold Cmd, tap s, let go of s, then let go of Cmd",
+		"K1  Shift+1",
+		"K2  Space, Return, Backspace, Fn+Backspace (Delete), Esc",
+		"K3  Left, Right, Up, Down arrows, then Fn+Left, Fn+Right, Fn+Up, Fn+Down",
+		"K4  F1 and F12 (hold Fn if those keys control brightness or volume)",
+		"K5  Ctrl+a, Option+a, Option+e, Cmd+Shift+z",
+		"K6  tap Ctrl alone, Option alone, right Shift alone, right Cmd alone",
 		"MOUSE",
-		"M1  left click, then right click (two-finger click on a trackpad)",
+		"M1  right click (two-finger click on a trackpad)",
 		"M2  Ctrl+click, Option+click, Shift+click, Cmd+click",
-		"M3  click and drag inside the window, let go inside",
-		"M4  click inside, drag outside the window, let go outside",
-		"M5  scroll down, scroll up, scroll left, scroll right",
-		"M6  middle click and side buttons, if your mouse has them",
+		"M3  press inside, drag inside, let go inside",
+		"M4  press inside, drag outside the window, let go outside",
+		"M5  four separate scroll gestures, two seconds apart, in this order:",
+		"    fingers move UP the trackpad, then DOWN, then LEFT, then RIGHT",
+		"M6  middle click and side buttons, if a mouse with them is connected",
 		"Quit with Cmd+Q when done.",
 	};
 	for (const char * l : lines) {

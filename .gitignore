@@ -12,4 +12,4 @@ example-*/build.log
 *.xcodeproj/project.xcworkspace/xcuserdata/
 
 # Probe output; results are recorded in DECISIONS.md
-example-keyprobe/keyprobe-results.txt
+example-keyprobe/keyprobe-results*.txt
