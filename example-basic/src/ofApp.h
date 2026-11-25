@@ -15,7 +15,7 @@ public:
 	void mouseScrolled(int x, int y, float scrollX, float scrollY) override;
 
 private:
-	ofxKeyCaps keys;
+	ofxKeyCaps keyCaps;
 
 	// The grid's offset, moved by scrolling.
 	glm::vec2 offset { 0.f, 0.f };

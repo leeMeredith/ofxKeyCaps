@@ -144,3 +144,9 @@ MIT, the same license as openFrameworks and most addons. Copyright 2026 Lee Mere
 
 ## D-040 — Platforms at v1
 v1 is developed and tested on macOS on Apple Silicon. Linux and Windows are expected to build, because the platform-specific code is guarded and the font falls back to system fonts with text labels, but they have not been built yet. The README says so plainly. A GitHub Actions build on Linux, like ofxManifold's, would turn "expected" into "checked".
+
+## D-041 — Top and center placements
+Lee asked for placements in the top corners and the center, not only along the bottom. `Style::Anchor` adds `TopCenter`, `TopLeft`, `TopRight` and `Center`, with a new `marginTop` (40 pt) beside `marginBottom` and `marginSide`. Left placements grow to the right and right placements grow to the left, so a row stays pinned in its corner as caps come and go. All placements follow window resizes, except `Custom`, whose point is fixed. `Custom` was the only way to reach the top before. It works for a fixed point, but because its point is the row's center, a row meant for a corner would wander as the row's width changed.
+
+## D-042 — The member is named keyCaps in every example
+The first use in a real app, the ofxManifold editor, failed with "Duplicate member 'keys'": the editor already has its own `Keys keys`. `keys` is a common name, so the README, the header comment in `ofxKeyCaps.h` and the spec now use `keyCaps`, and the README says why. The README also now shows the style being passed to `setup(style)`, and that `capHeight` sizes the box while `fontSize` sizes the letters, after both caused confusion in that first use.

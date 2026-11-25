@@ -7,11 +7,11 @@ void ofApp::setup() {
 
 	ofxKeyCaps::Style style;
 	style.core.showMouse = true;
-	keys.setup(style);
-	keys.mark(); // the log's zero is now
+	keyCaps.setup(style);
+	keyCaps.mark(); // the log's zero is now
 
 	std::cout << "example-basic: font symbols "
-			  << (keys.symbolsAvailable() ? "available" : "NOT available, using text labels")
+			  << (keyCaps.symbolsAvailable() ? "available" : "NOT available, using text labels")
 			  << std::endl;
 	std::cout << "example-basic: type, click, drag and scroll. Each scroll gesture also prints"
 			  << " which way the grid moved." << std::endl;
@@ -51,7 +51,7 @@ void ofApp::draw() {
 	ofDrawBitmapString("Type, click, drag and scroll. The log prints in the Terminal. Cmd+Q quits.", 20, 50);
 	ofDrawBitmapString("Ctrl+Shift+M marks. Ctrl+Shift+K hides and shows the caps.", 20, 70);
 
-	keys.draw(); // last, on top of everything
+	keyCaps.draw(); // last, on top of everything
 }
 
 //--------------------------------------------------------------

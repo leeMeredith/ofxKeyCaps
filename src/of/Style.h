@@ -15,17 +15,22 @@ namespace keycaps {
 
 	struct Style {
 		enum class Anchor {
-			BottomCenter,
+			BottomCenter, // the default
 			BottomLeft,
 			BottomRight,
+			TopCenter,
+			TopLeft,
+			TopRight,
+			Center, // the middle of the window
 			Custom, // customPosition is the bottom center of the row
 		};
 
 		// Position.
 		Anchor anchor = Anchor::BottomCenter;
 		glm::vec2 customPosition { 0.f, 0.f };
-		float marginBottom = 40.f;
-		float marginSide = 40.f; // used by BottomLeft and BottomRight
+		float marginBottom = 40.f; // Bottom placements
+		float marginTop = 40.f; // Top placements
+		float marginSide = 40.f; // Left and Right placements
 
 		// Size.
 		float capHeight = 44.f;

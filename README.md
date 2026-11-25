@@ -33,14 +33,18 @@ Then add `ofxKeyCaps` to your project with the Project Generator.
 ```cpp
 // ofApp.h
 #include "ofxKeyCaps.h"
-ofxKeyCaps keys;
+ofxKeyCaps keyCaps;
 
 // ofApp::setup()
-keys.setup();
+keyCaps.setup();
 
 // ofApp::draw(), as the last line
-keys.draw();
+keyCaps.draw();
 ```
+
+Name the member `keyCaps` rather than `keys`: many apps already have their own `keys`, and the two would clash.
+
+To add it to an existing app, open the app's folder with the Project Generator (Import), tick ofxKeyCaps, and select Update. If the app draws with a camera, call `keyCaps.draw()` after `cam.end()`.
 
 That's all. The addon sees keys and mouse events after your app does and never takes them away from it. It draws on top of your scene and leaves your drawing state, camera and viewport as it found them.
 
@@ -48,25 +52,39 @@ That's all. The addon sees keys and mouse events after your app does and never t
 
 Everything is in one Style struct, and every field has a default:
 
+Fill in a Style, then pass it to `setup`:
+
 ```cpp
 ofxKeyCaps::Style style;
 style.core.showMouse = true;                       // mouse caps (off by default)
 style.core.showModifierOnly = true;                // caps for Shift, Cmd ... pressed alone
-style.anchor = ofxKeyCaps::Style::Anchor::BottomLeft;
-style.capHeight = 56;                              // logical points
+style.anchor = ofxKeyCaps::Style::Anchor::TopRight;
+style.capHeight = 90;                              // the cap box, in points
+style.fontSize = 40;                               // the letters; about 45% of capHeight
 style.core.holdTime = 2.0;                         // seconds fully visible
-keys.setup(style);
+keyCaps.setup(style);
 ```
 
-Other fields include `marginBottom`, `fontSize`, `cornerRadius`, the colors (`capColor`, `pressedColor`, `markColor`, `textColor`, `outlineColor`), `fadeTime`, `maxCaps` and `log`. See `src/of/Style.h` and `src/core/CoreSettings.h`.
+`capHeight` sizes the box and `fontSize` sizes the letters, so to make the caps bigger, raise both. `keyCaps.setStyle(style)` changes the look while the app runs.
+
+Placements (`style.anchor`):
+
+- `BottomCenter` (the default), `BottomLeft`, `BottomRight`
+- `TopCenter`, `TopLeft`, `TopRight`
+- `Center`, the middle of the window
+- `Custom`: `style.customPosition` is the bottom-center point of the row, in points
+
+The bottom placements use `marginBottom`, the top ones `marginTop`, and the left and right ones `marginSide` (all 40 points by default). All of them follow window resizes except `Custom`. A left placement grows to the right and a right placement grows to the left, so the row stays pinned in its corner.
+
+Other fields include `fontSize`, `cornerRadius`, the colors (`capColor`, `pressedColor`, `markColor`, `textColor`, `outlineColor`), `fadeTime`, `maxCaps` and `log`. See `src/of/Style.h` and `src/core/CoreSettings.h`.
 
 From code:
 
 ```cpp
-keys.mark();              // same as the mark key
-keys.setEnabled(false);   // hide, and stop logging
-keys.setMasked(true);     // typed characters show as •, for passwords
-keys.clear();
+keyCaps.mark();              // same as the mark key
+keyCaps.setEnabled(false);   // hide, and stop logging
+keyCaps.setMasked(true);     // typed characters show as •, for passwords
+keyCaps.clear();
 ```
 
 ### Keys

@@ -262,7 +262,13 @@ Draws the caps and owns nothing else.
 
 Layout and look:
 - Draws in window pixel space with the origin at top-left.
-- The row is centered horizontally, with newest on the right and oldest on the left, and sits `marginBottom` above the bottom edge of the window.
+- The row is placed by `anchor` (D-041), with newest on the right and oldest on the left:
+  - `BottomCenter` (default), `BottomLeft`, `BottomRight`: `marginBottom` above the bottom edge.
+  - `TopCenter`, `TopLeft`, `TopRight`: `marginTop` below the top edge.
+  - Left and Right placements sit `marginSide` from their side, so a left row grows to the right and a right row grows to the left. Center placements are centered horizontally.
+  - `Center`: centered in both directions.
+  - `Custom`: `customPosition` is the bottom center of the row, in points. It is the only placement that does not follow window resizes.
+  - All margins are in points, multiplied by the pixel scale.
 - Each cap is a rounded rectangle (`cornerRadius`) filled with `capColor` and drawn with an optional `outlineColor`. The label is drawn in `textColor`. The `×N` count is drawn smaller, after the label, inside the same cap.
 - A held cap is filled with `pressedColor`. A mark cap is filled with `markColor`.
 - Cap width follows its text, with a minimum of `capHeight`, so a single key looks square.
@@ -304,9 +310,9 @@ Behavior:
 - When disabled, nothing is recorded, logged or drawn. Enabling again starts with no caps. The mark time is kept.
 
 Minimum host usage, the whole integration:
-- one `ofxKeyCaps keys;` member,
-- `keys.setup();` in `setup()`,
-- `keys.draw();` as the last line of `draw()`.
+- one `ofxKeyCaps keyCaps;` member (named `keyCaps`, not `keys`, D-042),
+- `keyCaps.setup();` in `setup()`,
+- `keyCaps.draw();` as the last line of `draw()`.
 
 ## 7. Controls
 
@@ -323,9 +329,9 @@ Minimum host usage, the whole integration:
 ## 8. Style (one plain struct, all fields have defaults)
 
 Position:
-- `anchor`: BottomCenter (default), BottomLeft, BottomRight, Custom.
+- `anchor`: BottomCenter (default), BottomLeft, BottomRight, TopCenter, TopLeft, TopRight, Center, Custom (D-041).
 - `customPosition`: used when `anchor` is Custom.
-- `marginBottom` 40 pt.
+- `marginBottom` 40 pt, `marginTop` 40 pt, `marginSide` 40 pt.
 
 Size:
 - `capHeight` 44 pt.

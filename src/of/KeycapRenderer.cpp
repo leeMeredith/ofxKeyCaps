@@ -120,10 +120,18 @@ namespace keycaps {
 
 		float x0 = 0.f;
 		float top = H - style.marginBottom * s - h;
+		const float centerX = (W - total) * 0.5f;
+		const float leftX = style.marginSide * s;
+		const float rightX = W - style.marginSide * s - total;
+		const float topY = style.marginTop * s;
 		switch (style.anchor) {
-		case Style::Anchor::BottomCenter: x0 = (W - total) * 0.5f; break;
-		case Style::Anchor::BottomLeft: x0 = style.marginSide * s; break;
-		case Style::Anchor::BottomRight: x0 = W - style.marginSide * s - total; break;
+		case Style::Anchor::BottomCenter: x0 = centerX; break;
+		case Style::Anchor::BottomLeft: x0 = leftX; break;
+		case Style::Anchor::BottomRight: x0 = rightX; break;
+		case Style::Anchor::TopCenter: x0 = centerX; top = topY; break;
+		case Style::Anchor::TopLeft: x0 = leftX; top = topY; break;
+		case Style::Anchor::TopRight: x0 = rightX; top = topY; break;
+		case Style::Anchor::Center: x0 = centerX; top = (H - h) * 0.5f; break;
 		case Style::Anchor::Custom:
 			x0 = style.customPosition.x * s - total * 0.5f;
 			top = style.customPosition.y * s - h;

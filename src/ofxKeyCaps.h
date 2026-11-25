@@ -5,9 +5,11 @@
 // a timestamped log of every press. See KEYCAPS.md.
 //
 // The whole integration:
-//     ofxKeyCaps keys;          // member of ofApp
-//     keys.setup();             // in setup()
-//     keys.draw();              // last line of draw()
+//     ofxKeyCaps keyCaps;       // member of ofApp
+//     keyCaps.setup();          // in setup()
+//     keyCaps.draw();           // last line of draw()
+//
+// Call the member keyCaps, not keys: apps often have their own `keys`.
 //
 // Keys: ⌃⇧M marks (the log's zero resets and "● MARK" shows), ⌃⇧K shows
 // and hides. Change them in Style (markKey, toggleKey) or turn them off.
